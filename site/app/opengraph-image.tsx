@@ -212,7 +212,7 @@ export default async function OpengraphImage() {
                 whiteSpace: "nowrap",
               }}
             >
-              github.com/stony-lab/nightshift
+              github.com/kishormorol/nightshift
             </div>
           </div>
         </div>

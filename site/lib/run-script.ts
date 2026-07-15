@@ -94,4 +94,4 @@ export const QUICKSTART = [
   "nightshift run --now",
 ].join("\n");
 
-export const GITHUB_URL = "https://github.com/stony-lab/nightshift";
+export const GITHUB_URL = "https://github.com/kishormorol/nightshift";

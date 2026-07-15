@@ -9,7 +9,7 @@ export function Footer() {
           href={GITHUB_URL}
           className="transition-colors hover:text-fg-muted"
         >
-          github.com/stony-lab/nightshift
+          github.com/kishormorol/nightshift
         </a>
       </div>
     </footer>

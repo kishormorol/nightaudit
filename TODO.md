@@ -38,17 +38,28 @@ Two honest ways out:
 Leaning toward changing the CLI. Needs a decision either way; leaving both as
 they are means shipping a page that misrepresents the tool.
 
-## 2. The repo URL is a guess
+## 2. `pipx install nightshift` installs someone else's package
 
-`stony-lab/nightshift` is hardcoded in 8 files (`pyproject.toml`,
-`nightshift/cli.py`, the three adapters, and three files under `site/`). It
-came from the design board, not from a repo that is known to exist. If the real
-home is somewhere else, fix it everywhere before publishing — a wrong URL in
-`pipx`-installed metadata and in the og:image is hard to walk back.
+**The PyPI name is taken.** `nightshift` on PyPI is Ian Fucci's NMR
+spectroscopy plotting tool (v1.0.1, live today):
+<https://pypi.org/project/nightshift/>. Anyone who follows our README gets that
+instead.
 
-```
-grep -rl "stony-lab/nightshift" --exclude-dir={.git,node_modules,.next,.venv} .
-```
+This is not cosmetic. The command appears in:
+
+- `README.md` — the quickstart SPEC.md mandates verbatim
+- `pyproject.toml` — `name = "nightshift"`, which cannot be published as-is
+- `site/lib/run-script.ts` — the hero button and the copy-to-clipboard text
+- `site/app/opengraph-image.tsx` — the og:image, i.e. the thing people screenshot
+
+**Decide a distribution name before publishing or announcing anything.**
+`nightshift-cli` and `nightshift-ai` were both free at the time of writing —
+check again, they're first-come. The console script can stay `nightshift`
+regardless: the PyPI project name and the installed command are independent, so
+`pipx install nightshift-cli` still gives you `nightshift run`.
+
+Until this is resolved the repo should stay private (it is), because publishing
+it means publishing an install instruction that points at a stranger's package.
 
 ## 3. Record a real asciinema cast
 
@@ -79,7 +90,8 @@ points at a domain that does not resolve. Either register it, point
 
 ## 6. Housekeeping
 
-- `feat/landing-page` is 3 commits ahead of `main` and unmerged.
-- No git remote is configured; nothing has been pushed anywhere.
-- CI has never run — the workflow is written and every step was verified
-  locally, but it has not executed on GitHub.
+- `feat/landing-page` is unmerged and ahead of `main`.
+- The repo is **private**, deliberately — see (2). Flip it with
+  `gh repo edit --visibility public` once the install instruction is true.
+- CI's first run will be its first real run. Every step was verified locally,
+  but "works on my machine" is exactly what CI exists to disprove.

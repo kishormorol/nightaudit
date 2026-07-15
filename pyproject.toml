@@ -9,7 +9,7 @@ description = "Your AI works the night shift — read-only reviews of your proje
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "stony-lab" }]
+authors = [{ name = "Md. Kishor Morol" }]
 keywords = ["ai", "code-review", "claude-code", "automation", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -33,8 +33,8 @@ dev = ["pytest>=7.4", "pytest-cov>=4.1"]
 nightshift = "nightshift.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/stony-lab/nightshift"
-Source = "https://github.com/stony-lab/nightshift"
+Homepage = "https://github.com/kishormorol/nightshift"
+Source = "https://github.com/kishormorol/nightshift"
 
 [tool.hatch.build.targets.wheel]
 packages = ["nightshift"]
