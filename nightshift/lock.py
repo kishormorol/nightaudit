@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import errno
 import json
+import logging
 import os
 import time as _time
 from dataclasses import dataclass
 from pathlib import Path
 
 from nightshift.config import state_dir
+
+log = logging.getLogger("nightshift")
 
 #: A lock older than ``STALE_MULTIPLIER × run.timeout_s`` is presumed abandoned.
 STALE_MULTIPLIER = 2
@@ -45,6 +48,11 @@ class Lock:
         self.path = path or lock_path()
         self.timeout_s = timeout_s
         self._held = False
+        #: Stamp we wrote when we took the lock. Together with the pid it is
+        #: what makes a lockfile *ours* rather than merely present — see
+        #: :meth:`release`. A pid alone cannot say: two Lock objects in one
+        #: process share one, and the OS reuses pids.
+        self._acquired_at: float | None = None
 
     @property
     def stale_after_s(self) -> float:
@@ -69,9 +77,22 @@ class Lock:
         return info is not None and info.age_s > self.stale_after_s
 
     def _write(self) -> None:
+        acquired_at = _time.time()
         fd = os.open(self.path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump({"pid": os.getpid(), "acquired_at": _time.time()}, fh)
+            json.dump({"pid": os.getpid(), "acquired_at": acquired_at}, fh)
+        self._acquired_at = acquired_at
+
+    def _is_ours(self, info: LockInfo | None) -> bool:
+        """Is the lockfile on disk the one *we* wrote?
+
+        The pid cannot settle this alone: two Lock objects in one process share
+        it, and the OS reuses pids. The acquisition stamp can — nothing else
+        wrote that float.
+        """
+        if info is None or self._acquired_at is None:
+            return False
+        return info.pid == os.getpid() and info.acquired_at == self._acquired_at
 
     def acquire(self) -> None:
         """Take the lock, breaking it first if it has gone stale.
@@ -119,13 +140,25 @@ class Lock:
             pass
 
     def release(self) -> None:
+        """Give up the lock, but only if the lockfile is still ours.
+
+        A run that overran had its lock broken as stale, and someone else is
+        working now. Unlinking on the way out would delete *their* lockfile and
+        let a third run start alongside a live one — the exact thing the lock
+        exists to prevent, brought about by the cleanup rather than the overrun.
+        """
         if not self._held:
             return
+        self._held = False
+
+        if not self._is_ours(self.read()):
+            log.debug("not releasing %s — it is no longer our lock", self.path)
+            return
+
         try:
             self.path.unlink()
         except FileNotFoundError:
             pass
-        self._held = False
 
     def __enter__(self) -> Lock:
         self.acquire()

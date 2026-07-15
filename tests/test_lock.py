@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 
 import pytest
@@ -111,6 +112,65 @@ def test_release_is_idempotent_and_never_steals(tmp_path):
 
     holder.release()
     holder.release()
+    assert not path.exists()
+
+
+def test_release_does_not_delete_a_lock_that_was_broken_and_retaken(tmp_path):
+    # The overrun path: a run exceeds the stale threshold, a later tick breaks
+    # its lock and starts working, and then the slow run finishes and tidies up
+    # — deleting the *new* owner's lockfile and letting a third run join a live
+    # one. The lock's own cleanup defeating the lock.
+    path = tmp_path / "lock"
+    # timeout_s=0 makes any elapsed time stale, so the test need not wait 20min.
+    slow = Lock(path, timeout_s=0)
+    slow.acquire()
+    time.sleep(0.02)
+
+    newcomer = Lock(path, timeout_s=0)
+    newcomer.acquire()
+
+    slow.release()
+
+    assert path.exists(), "release() deleted a lock it no longer owned"
+    assert newcomer.read().pid == os.getpid()
+
+
+def test_the_new_owner_can_still_release_normally(tmp_path):
+    path = tmp_path / "lock"
+    slow = Lock(path, timeout_s=0)
+    slow.acquire()
+    time.sleep(0.02)
+    newcomer = Lock(path, timeout_s=0)
+    newcomer.acquire()
+
+    slow.release()
+    newcomer.release()
+
+    assert not path.exists()
+
+
+def test_a_pid_alone_cannot_prove_ownership(tmp_path):
+    # Both locks live in this process and so share a pid; only the acquisition
+    # stamp distinguishes them. A pid check would have called this ours.
+    path = tmp_path / "lock"
+    first = Lock(path, timeout_s=0)
+    first.acquire()
+    time.sleep(0.02)
+    second = Lock(path, timeout_s=0)
+    second.acquire()
+
+    assert first.read().pid == os.getpid()
+    assert not first._is_ours(first.read())
+    assert second._is_ours(second.read())
+
+
+def test_release_tolerates_a_lock_that_vanished(tmp_path):
+    path = tmp_path / "lock"
+    lock = Lock(path, timeout_s=600)
+    lock.acquire()
+    path.unlink()
+
+    lock.release()  # must not raise
     assert not path.exists()
 
 
