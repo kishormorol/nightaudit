@@ -11,6 +11,7 @@ import logging
 import shutil
 import sys
 import textwrap
+import time
 from datetime import date, datetime
 from pathlib import Path
 
@@ -18,7 +19,7 @@ import click
 
 from nightshift import __version__
 from nightshift import adapters as adapter_registry
-from nightshift import cron, prompts, report, scheduler
+from nightshift import cron, events, prompts, report, scheduler
 from nightshift.adapters.base import Event
 from nightshift.budget import Ledger
 from nightshift.config import (
@@ -318,6 +319,92 @@ def run(force: bool, provider: str | None, stream: bool | None, verbose: bool) -
                 if findings
                 else "         no findings"
             )
+
+
+# --------------------------------------------------------------- watch
+
+
+def _fmt_secs(seconds: float) -> str:
+    seconds = int(seconds)
+    return f"{seconds}s" if seconds < 60 else f"{seconds // 60}m{seconds % 60:02d}s"
+
+
+def _render_log_event(payload: dict) -> None:
+    """Render one line from an event log, as `watch` sees it."""
+    kind = payload.get("kind", "")
+
+    if kind == "meta":
+        started = str(payload.get("started_at", ""))[11:19]
+        head = f"{payload.get('project', '?')} · {payload.get('task', '?')}"
+        attempt = payload.get("attempt", 1)
+        if isinstance(attempt, int) and attempt > 1:
+            head += f"  (retry {attempt - 1})"
+        click.echo()
+        click.echo(
+            click.style(f"┌ {head}", bold=True)
+            + click.style(f"  {payload.get('provider', '?')} · {started}", dim=True)
+        )
+        return
+
+    if kind == "end":
+        status = str(payload.get("status", "?"))
+        colour = {"ok": "green", "failed": "red", "timeout": "yellow"}.get(status, "white")
+        findings = payload.get("findings", 0)
+        tail = f"{findings} finding{'' if findings == 1 else 's'}"
+        if payload.get("detail"):
+            tail += f" — {payload['detail']}"
+        click.echo(
+            click.style("└ ", dim=True)
+            + click.style(status, fg=colour, bold=True)
+            + click.style(f"  {_fmt_secs(payload.get('duration_s', 0))} · {tail}", dim=True)
+        )
+        return
+
+    _render_event(
+        Event(
+            kind=kind,  # type: ignore[arg-type]
+            text=str(payload.get("text", "")),
+            tool=str(payload.get("tool", "")),
+            detail=str(payload.get("detail", "")),
+        )
+    )
+
+
+@main.command()
+@click.option("-n", "--history", default=1, help="Replay this many finished runs first.")
+def watch(history: int) -> None:
+    """Follow runs as they happen, including ones cron started."""
+    click.echo(click.style("nightshift · watching for runs — ctrl-c to stop", dim=True))
+
+    seen: set[Path] = set()
+
+    if history > 0:
+        for path in reversed(events.recent_logs(limit=history)):
+            seen.add(path)
+            for payload in events.read(path):
+                _render_log_event(payload)
+
+    # Anything already on disk that we did not just replay is history too;
+    # marking it seen keeps `watch` from re-rendering old runs on startup.
+    # A log with no `end` is only worth following if it is still being
+    # written — an interrupted run leaves one behind forever, and following
+    # that would wedge the watcher instead of showing the next real run.
+    for path in events.recent_logs(limit=200):
+        if events.is_finished(path) or events.is_stale(path):
+            seen.add(path)
+
+    try:
+        while True:
+            fresh = [p for p in events.recent_logs(limit=20) if p not in seen]
+            if not fresh:
+                time.sleep(events.POLL_S)
+                continue
+            for path in reversed(fresh):
+                seen.add(path)
+                for payload in events.follow(path):
+                    _render_log_event(payload)
+    except KeyboardInterrupt:
+        click.echo(click.style("\nstopped watching.", dim=True))
 
 
 # -------------------------------------------------------------- digest
