@@ -1,0 +1,209 @@
+# nightshift — Implementation Spec (v1)
+
+> Your AI works the night shift. A Python CLI that puts your idle AI coding
+> subscription (Claude Code; Codex/Copilot later) to work while you're busy:
+> read-only reviews of your projects during configured hours, one markdown
+> digest every morning. It NEVER modifies any project file.
+
+## Goals / non-goals
+
+**v1 goals:** cron-driven scheduler, budget guardrails, working Claude Code
+adapter (read-only enforced), round-robin project/task queue, daily markdown
+digest, `init/run/digest/status` CLI, tests that spend zero quota.
+
+**Explicitly out of scope for v1:** token-level accounting, web dashboard,
+Slack/email delivery, any write-mode, working Codex/Copilot adapters (ship as
+documented stubs marked "help wanted"), landing page.
+
+## Tech
+
+- Python 3.10+, installable via pipx (`pyproject.toml`, console script `nightshift`)
+- Dependencies: keep minimal — `pyyaml`, `click` (or `typer`), stdlib elsewhere
+- No daemon. System cron invokes `nightshift run` hourly; the command decides
+  internally whether to act and exits 0 quietly otherwise.
+
+## Repo structure
+
+```
+nightshift/
+├── README.md
+├── pyproject.toml
+├── nightshift/
+│   ├── __init__.py
+│   ├── cli.py           # init | run | digest | status
+│   ├── config.py        # load + validate YAML config
+│   ├── scheduler.py     # window/idle/budget/lock gate + queue pop
+│   ├── budget.py        # per-provider run ledger
+│   ├── queue.py         # persistent round-robin (project, task) queue
+│   ├── report.py        # store RunResults, render digest
+│   └── adapters/
+│       ├── base.py      # Adapter protocol + RunResult
+│       ├── claude_code.py
+│       ├── codex.py     # stub: raises NotImplementedError, docstring "help wanted"
+│       └── copilot.py   # stub: same
+├── prompts/
+│   ├── code_review.md
+│   ├── security_audit.md
+│   ├── deps_audit.md
+│   ├── docs_drift.md
+│   └── dead_links.md
+└── tests/
+```
+
+## State & files
+
+All state lives under `~/.nightshift/`:
+- `config.yaml` — user config (below)
+- `ledger.json` — budget counts per provider per day/week
+- `queue.json` — round-robin position
+- `lock` — lockfile during a run
+Reports go to the configured `digest.dir` (default `~/nightshift-reports/`).
+
+## Config schema (`~/.nightshift/config.yaml`)
+
+```yaml
+providers:
+  claude_code:
+    enabled: true
+    budget: { max_runs_per_day: 6, max_runs_per_week: 30 }
+  codex:    { enabled: false }
+  copilot:  { enabled: false }
+
+projects:
+  - name: gradagent
+    path: ~/projects/gradagent
+    tasks: [code_review, deps_audit, docs_drift]
+
+schedule:
+  windows: ["09:00-18:00", "00:00-06:00"]   # local time; may cross midnight
+  idle_minutes: 60
+
+digest:
+  dir: ~/nightshift-reports
+run:
+  timeout_s: 600
+```
+
+Validate on load; fail with a clear human message on any invalid field.
+Expand `~` in all paths.
+
+## Adapter interface (`adapters/base.py`)
+
+```python
+@dataclass
+class RunResult:
+    provider: str
+    project: str
+    task: str
+    status: Literal["ok", "failed", "timeout"]
+    findings_md: str
+    started_at: datetime
+    duration_s: float
+
+class Adapter(Protocol):
+    name: str
+    def available(self) -> bool: ...   # CLI on PATH and authenticated
+    def run(self, prompt: str, project_dir: Path, timeout_s: int) -> RunResult: ...
+```
+
+### Claude Code adapter
+
+- Invoke headless: `claude -p "<prompt>" --output-format json` with cwd set to
+  the project dir.
+- **Read-only is enforced via Claude Code's own permission flags: allow only
+  Read/Grep/Glob-class tools; disallow Edit, Write, and Bash.** Use the
+  current CLI flags for tool restriction (check `claude --help` at build time
+  rather than assuming flag names).
+- Parse the JSON result for the text output; on malformed output, keep raw
+  stdout as `findings_md` with status `ok` — never discard a completed run.
+- `available()`: binary on PATH + a cheap auth check.
+
+## Scheduler (`nightshift run`)
+
+Proceed only if ALL pass, otherwise exit 0 with a one-line log reason:
+1. **Window** — now is inside a configured window (handle windows crossing midnight).
+2. **Idle** — provider not used by the human in the last `idle_minutes`.
+   For Claude Code: newest mtime under `~/.claude/projects/`. If the directory
+   doesn't exist, treat as idle.
+3. **Budget** — ledger below both daily and weekly caps for the provider.
+4. **Lock** — acquire lockfile; stale locks (> 2× timeout) are broken.
+
+Then: pop next `(project, task)` from the persistent round-robin queue, load
+the prompt template, run the adapter, record the result, increment the ledger,
+release the lock. `--now` flag skips checks 1–2 (not budget) for testing.
+
+**Retries:** a failed/timeout run may be retried at most once, immediately,
+and both attempts count against budget. Never more.
+
+## Budget (`budget.py`)
+
+JSON ledger: `{provider: {"YYYY-MM-DD": n, "YYYY-Www": n}}`. Increment on
+every attempt (including failures — they consumed quota). Prune entries older
+than 30 days on load. At cap → scheduler records a `skipped` entry in the run
+log so the digest shows it.
+
+## Reporting & digest
+
+Each run writes `reports/YYYY-MM-DD/<project>-<task>-<HHMMSS>.json` (full
+RunResult) and `.md` (findings). `nightshift digest` renders
+`DIGEST-YYYY-MM-DD.md`:
+
+1. **Header** — date + budget bar per provider:
+   `claude_code ▓▓▓░░░ 3/6 today · 14/30 week`
+2. **Highlights** — top 3–5 findings across projects, highest severity first.
+3. **Per-project sections** — each finding: severity badge (🔴 HIGH / 🟠 MED /
+   🟡 LOW), task name, repo-relative `path/to/file.py:LINE`, one-line
+   recommendation.
+4. **Run log footer** — table: project | task | provider | status
+   (ok/failed/timeout/skipped) | duration | timestamp. Skipped and failed runs
+   must appear here.
+
+Severity parsing: prompts instruct the model to prefix each finding with
+`HIGH|MED|LOW`; parse leniently, default to LOW when missing. No extra model
+call to summarize in v1.
+
+## Prompt templates
+
+Markdown files in `prompts/`; users can add their own (any `.md` in the dir is
+a valid task name). Each template must instruct the model to: only read, never
+modify; output findings as a markdown list; prefix each finding with
+`HIGH|MED|LOW`; include `file:line` repo-relative references; give a one-line
+recommendation per finding; say "No findings." if clean.
+
+## CLI
+
+- `nightshift init` — interactive: detect installed provider CLIs, prompt for
+  project paths, write config, print (and offer to install) cron entries:
+  hourly `nightshift run`, daily 07:30 `nightshift digest`.
+- `nightshift run [--now]` — one gated run.
+- `nightshift digest [--date YYYY-MM-DD]` — render digest.
+- `nightshift status` — budget bars, last 5 runs, next eligible window,
+  provider availability.
+
+## Error handling
+
+Timeout → kill subprocess tree, status `timeout`. Missing/unauthed CLI →
+skip with a note, exit 0. Every failure degrades to a line in the digest run
+log; the tool must never leave a stack trace in cron mail for expected
+conditions.
+
+## Testing
+
+- `FakeAdapter` for scheduler, budget, queue, and digest tests — zero real calls.
+- Claude Code adapter tested with mocked `subprocess`.
+- Cover: window crossing midnight, idle detection, both budget caps, retry-once,
+  stale lock recovery, digest rendering incl. empty day and all-failed day.
+- GitHub Actions CI running pytest.
+
+## README requirements
+
+GIF/asciinema placeholder above the fold, then exactly:
+
+```bash
+pipx install nightshift
+nightshift init
+nightshift run --now
+```
+
+Then the "0 files touched" trust story (how read-only is enforced), digest
+sample, budget explanation, and "Codex & Copilot adapters: help wanted."
