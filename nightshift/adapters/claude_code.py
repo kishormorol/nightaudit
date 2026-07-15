@@ -14,11 +14,13 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import signal
 import subprocess
+import threading
 from datetime import datetime
 from pathlib import Path
 
-from nightshift.adapters.base import Availability, RunResult
+from nightshift.adapters.base import Availability, Event, OnEvent, RunResult
 
 #: Tools Claude Code may use: inspect the repo, nothing else.
 ALLOWED_TOOLS = ("Read", "Grep", "Glob", "NotebookRead")
@@ -46,6 +48,96 @@ _READ_ONLY_PREAMBLE = (
     "You have no write, edit, or shell tools — do not attempt to use them, and "
     "do not ask questions. Inspect the repository and report findings only.\n\n"
 )
+
+
+def _parse_line(line: str) -> dict | None:
+    """One NDJSON event, or ``None`` for anything we can't read.
+
+    A malformed line is skipped rather than fatal: the stream is telemetry,
+    and the run's outcome must not hinge on our parsing every frame of it.
+    """
+    line = line.strip()
+    if not line:
+        return None
+    try:
+        payload = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _content(payload: dict) -> list[dict]:
+    message = payload.get("message")
+    if not isinstance(message, dict):
+        return []
+    blocks = message.get("content")
+    if not isinstance(blocks, list):
+        return []
+    return [b for b in blocks if isinstance(b, dict)]
+
+
+def _format_input(value: object, limit: int = 60) -> str:
+    """Render tool input as ``key: value``, short enough for one line."""
+    if not isinstance(value, dict) or not value:
+        return ""
+    parts = []
+    for key, item in list(value.items())[:2]:
+        text = str(item).replace("\n", " ")
+        if len(text) > limit:
+            text = text[: limit - 1] + "…"
+        parts.append(f"{key}: {text}")
+    return ", ".join(parts)
+
+
+def _summarize(content: object, limit: int = 70) -> str:
+    """One line describing a tool result."""
+    if isinstance(content, list):
+        content = " ".join(
+            str(b.get("text", "")) for b in content if isinstance(b, dict)
+        )
+    text = str(content or "").strip()
+    if not text:
+        return ""
+    lines = text.splitlines()
+    first = lines[0]
+    if len(first) > limit:
+        first = first[: limit - 1] + "…"
+    if len(lines) > 1:
+        first += f"  (+{len(lines) - 1} lines)"
+    return first
+
+
+def _emit(on_event: OnEvent, event: Event) -> None:
+    """A broken renderer must not fail a run that has already been billed."""
+    try:
+        on_event(event)
+    except Exception:  # noqa: BLE001 - the callback is the caller's problem
+        pass
+
+
+def _drain(stream, sink: list[str]) -> None:
+    if stream is None:
+        return
+    try:
+        for line in stream:
+            sink.append(line.rstrip("\n"))
+    except (OSError, ValueError):
+        pass
+
+
+def _kill_tree(proc: subprocess.Popen) -> None:
+    """Kill the CLI and anything it spawned.
+
+    ``start_new_session`` made it a process-group leader precisely so this
+    can reach its children.
+    """
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (OSError, ProcessLookupError):
+        try:
+            proc.kill()
+        except OSError:
+            pass
 
 
 class ClaudeCodeAdapter:
@@ -117,20 +209,30 @@ class ClaudeCodeAdapter:
 
     # ---- running ------------------------------------------------------
 
-    def command(self, prompt: str) -> list[str]:
+    def command(self, prompt: str, stream: bool = False) -> list[str]:
+        # stream-json is newline-delimited events rather than one envelope;
+        # the CLI only emits it under --print when --verbose is also set.
+        fmt = ["--output-format", "json"]
+        if stream:
+            fmt = ["--output-format", "stream-json", "--verbose"]
         return [
             self.binary,
             "--print",
             _READ_ONLY_PREAMBLE + prompt,
-            "--output-format",
-            "json",
+            *fmt,
             "--allowed-tools",
             *ALLOWED_TOOLS,
             "--disallowed-tools",
             *DISALLOWED_TOOLS,
         ]
 
-    def run(self, prompt: str, project_dir: Path, timeout_s: int) -> RunResult:
+    def run(
+        self,
+        prompt: str,
+        project_dir: Path,
+        timeout_s: int,
+        on_event: OnEvent | None = None,
+    ) -> RunResult:
         started = datetime.now()
 
         def finish(status: str, findings_md: str, detail: str = "") -> RunResult:
@@ -147,6 +249,9 @@ class ClaudeCodeAdapter:
 
         if not project_dir.is_dir():
             return finish("failed", "", f"project path does not exist: {project_dir}")
+
+        if on_event is not None:
+            return self._run_streaming(prompt, project_dir, timeout_s, on_event, finish)
 
         try:
             proc = subprocess.run(
@@ -181,6 +286,126 @@ class ClaudeCodeAdapter:
             return finish("failed", "", "no output")
 
         return finish("ok", self._extract(stdout))
+
+    # ---- streaming ----------------------------------------------------
+
+    def _run_streaming(
+        self,
+        prompt: str,
+        project_dir: Path,
+        timeout_s: int,
+        on_event: OnEvent,
+        finish,
+    ) -> RunResult:
+        """Same run, reported as it happens.
+
+        The buffered path above gets its timeout and its process-group kill
+        from ``subprocess.run``; reading the stream ourselves means we have to
+        reproduce both, so a timeout here still takes the whole tree with it
+        rather than leaving orphans holding the quota.
+        """
+        try:
+            proc = subprocess.Popen(
+                self.command(prompt, stream=True),
+                cwd=str(project_dir),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                stdin=subprocess.DEVNULL,
+                text=True,
+                bufsize=1,
+                start_new_session=True,
+            )
+        except FileNotFoundError:
+            return finish("failed", "", f"`{self.binary}` is not on PATH")
+        except OSError as exc:
+            return finish("failed", "", f"could not start `{self.binary}`: {exc}")
+
+        timed_out = threading.Event()
+
+        def on_deadline() -> None:
+            timed_out.set()
+            _kill_tree(proc)
+
+        timer = threading.Timer(timeout_s, on_deadline)
+        timer.daemon = True
+        timer.start()
+
+        stderr_lines: list[str] = []
+        drain = threading.Thread(target=_drain, args=(proc.stderr, stderr_lines), daemon=True)
+        drain.start()
+
+        result_text = ""
+        prose: list[str] = []
+        try:
+            for line in proc.stdout or ():
+                payload = _parse_line(line)
+                if payload is None:
+                    continue
+                if payload.get("type") == "result" and not payload.get("is_error"):
+                    value = payload.get("result")
+                    if isinstance(value, str):
+                        result_text = value.strip()
+                for event in self._events_for(payload):
+                    if event.kind == "text":
+                        prose.append(event.text)
+                    _emit(on_event, event)
+        finally:
+            timer.cancel()
+            proc.wait()
+            drain.join(timeout=2)
+
+        # Whatever the CLI managed to say before the deadline is still worth
+        # keeping — the run was billed either way.
+        findings = result_text or "\n\n".join(prose).strip()
+
+        if timed_out.is_set():
+            return finish("timeout", findings, f"no output after {timeout_s}s")
+
+        if proc.returncode != 0:
+            stderr = "\n".join(stderr_lines).strip()
+            detail = stderr.splitlines()[0] if stderr else f"exit {proc.returncode}"
+            return finish("failed", findings, detail)
+
+        if not findings:
+            return finish("failed", "", "no output")
+
+        return finish("ok", findings)
+
+    @classmethod
+    def _events_for(cls, payload: dict):
+        """Translate one stream-json line into zero or more events."""
+        kind = payload.get("type")
+
+        if kind == "system" and payload.get("subtype") == "init":
+            yield Event("start", text=str(payload.get("cwd") or ""))
+
+        elif kind == "assistant":
+            for block in _content(payload):
+                btype = block.get("type")
+                if btype == "text":
+                    text = (block.get("text") or "").strip()
+                    if text:
+                        yield Event("text", text=text)
+                elif btype == "tool_use":
+                    yield Event(
+                        "tool",
+                        tool=str(block.get("name") or "?"),
+                        detail=_format_input(block.get("input")),
+                    )
+                elif btype == "thinking":
+                    yield Event("thinking")
+
+        elif kind == "user":
+            for block in _content(payload):
+                if block.get("type") == "tool_result":
+                    yield Event("tool_result", text=_summarize(block.get("content")))
+
+        elif kind == "result":
+            if payload.get("is_error"):
+                detail = payload.get("result")
+                yield Event("error", text=str(detail or "the run reported an error"))
+            else:
+                yield Event("result")
 
     @staticmethod
     def _extract(stdout: str) -> str:

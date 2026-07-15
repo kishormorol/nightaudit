@@ -8,7 +8,9 @@ every hour gets uninstalled by lunchtime.
 from __future__ import annotations
 
 import logging
+import shutil
 import sys
+import textwrap
 from datetime import date, datetime
 from pathlib import Path
 
@@ -17,6 +19,7 @@ import click
 from nightshift import __version__
 from nightshift import adapters as adapter_registry
 from nightshift import cron, prompts, report, scheduler
+from nightshift.adapters.base import Event
 from nightshift.budget import Ledger
 from nightshift.config import (
     Config,
@@ -52,6 +55,40 @@ def _load_or_exit() -> Config:
 def _echo_quiet(message: str) -> None:
     """A gate refused. One line, exit 0."""
     click.echo(message)
+
+
+def _render_event(event: Event) -> None:
+    """Print one adapter event, Claude-Code style.
+
+    Purely cosmetic — the digest is built from the run's result, so anything
+    dropped here costs nothing but the view.
+    """
+    if event.kind == "start":
+        click.echo(click.style("  ⏺ ", fg="green") + click.style(event.text, dim=True))
+
+    elif event.kind == "thinking":
+        click.echo(click.style("  ✻ thinking", fg="magenta", dim=True))
+
+    elif event.kind == "tool":
+        line = click.style("  ⏺ ", fg="cyan") + click.style(event.tool, bold=True)
+        if event.detail:
+            line += click.style(f"({event.detail})", dim=True)
+        click.echo(line)
+
+    elif event.kind == "tool_result":
+        if event.text:
+            click.echo(click.style(f"    ⎿  {event.text}", dim=True))
+
+    elif event.kind == "text":
+        width = min(shutil.get_terminal_size((80, 24)).columns, 100) - 4
+        for paragraph in event.text.splitlines():
+            if not paragraph.strip():
+                continue
+            for line in textwrap.wrap(paragraph, width=max(width, 40)) or [""]:
+                click.echo(f"    {line}")
+
+    elif event.kind == "error":
+        click.echo(click.style(f"  ✗ {event.text}", fg="red"))
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -235,16 +272,34 @@ def init(force: bool) -> None:
 @main.command()
 @click.option("--now", "force", is_flag=True, help="Skip the window and idle checks (not budget).")
 @click.option("--provider", default=None, help="Restrict to one provider.")
+@click.option(
+    "--stream/--no-stream",
+    default=None,
+    help="Show the run live. Defaults on at a terminal, off under cron.",
+)
 @click.option("-v", "--verbose", is_flag=True, help="Debug logging.")
-def run(force: bool, provider: str | None, verbose: bool) -> None:
+def run(force: bool, provider: str | None, stream: bool | None, verbose: bool) -> None:
     """Do one gated run, or exit quietly explaining why not."""
     _setup_logging(verbose)
     cfg = _load_or_exit()
 
-    outcome = scheduler.run_once(cfg, force=force, provider=provider)
+    # Cron gets the quiet single-line summary it has always got; a human at a
+    # terminal gets to watch. --stream/--no-stream overrides the guess.
+    if stream is None:
+        stream = sys.stdout.isatty()
+
+    outcome = scheduler.run_once(
+        cfg,
+        force=force,
+        provider=provider,
+        on_event=_render_event if stream else None,
+    )
     if not outcome.ran:
         _echo_quiet(f"nothing to do — {outcome.reason}")
         return
+
+    if stream:
+        click.echo()
 
     for result in outcome.results:
         if result.status == "skipped":

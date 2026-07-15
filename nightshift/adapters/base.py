@@ -5,16 +5,40 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Protocol, runtime_checkable
+from typing import Callable, Literal, Protocol, runtime_checkable
 
 Status = Literal["ok", "failed", "timeout", "skipped"]
 
 #: Statuses that consumed provider quota and so must hit the ledger.
 BILLED_STATUSES: frozenset[str] = frozenset({"ok", "failed", "timeout"})
 
+EventKind = Literal["start", "thinking", "text", "tool", "tool_result", "result", "error"]
+
 
 class AdapterError(Exception):
     """A problem with an adapter itself, not with the run it attempted."""
+
+
+@dataclass
+class Event:
+    """One thing an adapter saw while a run was still in flight.
+
+    Adapters emit these only when a caller asks for them; the digest is built
+    from :class:`RunResult`, never from events. Nothing here is load-bearing —
+    dropping every event must still leave the run correct.
+    """
+
+    kind: EventKind
+    #: Assistant prose, a tool result summary, or an error message.
+    text: str = ""
+    #: Tool name, for ``tool``/``tool_result``.
+    tool: str = ""
+    #: Short rendering of tool input, e.g. ``pattern: *.py``.
+    detail: str = ""
+
+
+#: Called on the run's thread as events arrive. Must never raise.
+OnEvent = Callable[[Event], None]
 
 
 @dataclass
@@ -99,8 +123,19 @@ class Adapter(Protocol):
         """
         ...
 
-    def run(self, prompt: str, project_dir: Path, timeout_s: int) -> RunResult:
-        """Execute ``prompt`` against ``project_dir`` read-only."""
+    def run(
+        self,
+        prompt: str,
+        project_dir: Path,
+        timeout_s: int,
+        on_event: OnEvent | None = None,
+    ) -> RunResult:
+        """Execute ``prompt`` against ``project_dir`` read-only.
+
+        When ``on_event`` is given the adapter should report progress as it
+        happens; when it is ``None`` the adapter stays silent, which is what
+        cron wants. The :class:`RunResult` must not depend on which was used.
+        """
         ...
 
 
@@ -124,7 +159,13 @@ class StubAdapter:
     def last_human_use(self) -> datetime | None:
         return None
 
-    def run(self, prompt: str, project_dir: Path, timeout_s: int) -> RunResult:
+    def run(
+        self,
+        prompt: str,
+        project_dir: Path,
+        timeout_s: int,
+        on_event: OnEvent | None = None,
+    ) -> RunResult:
         raise NotImplementedError(
             f"the {self.name} adapter is a documented stub — see {self.help_wanted_url}"
         )

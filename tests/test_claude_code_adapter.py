@@ -310,3 +310,161 @@ def test_directory_mtimes_count_as_human_use(adapter, tmp_path, monkeypatch):
     found = adapter.last_human_use()
     assert found is not None
     assert abs(found.timestamp() - (now - timedelta(minutes=2)).timestamp()) < 2
+
+
+# ---- streaming --------------------------------------------------------
+
+
+class FakePopen:
+    """Just enough Popen to drive the streaming reader."""
+
+    def __init__(self, lines, returncode=0, stderr_lines=()):
+        self.stdout = iter(lines)
+        self.stderr = iter(stderr_lines)
+        self.returncode = returncode
+        self.pid = 424242
+
+    def wait(self):
+        return self.returncode
+
+    def kill(self):
+        pass
+
+
+def line(payload: dict) -> str:
+    return json.dumps(payload) + "\n"
+
+
+def assistant(*blocks) -> str:
+    return line({"type": "assistant", "message": {"content": list(blocks)}})
+
+
+#: A realistic stream: init, prose, a tool call, its result, then the answer.
+STREAM = [
+    line({"type": "system", "subtype": "init", "cwd": "/repo"}),
+    assistant({"type": "text", "text": "Looking at the auth code."}),
+    assistant({"type": "tool_use", "name": "Grep", "input": {"pattern": "jwt"}}),
+    line(
+        {
+            "type": "user",
+            "message": {
+                "content": [
+                    {"type": "tool_result", "content": "api/auth.py:142\napi/x.py:9"}
+                ]
+            },
+        }
+    ),
+    line({"type": "result", "is_error": False, "result": "- HIGH api/auth.py:142 — no exp"}),
+]
+
+
+@pytest.fixture
+def popen_spy(monkeypatch):
+    calls: list[dict] = []
+    box = {"proc": FakePopen(STREAM), "raises": None}
+
+    def fake_popen(cmd, **kwargs):
+        calls.append({"cmd": cmd, **kwargs})
+        if box["raises"] is not None:
+            raise box["raises"]
+        return box["proc"]
+
+    monkeypatch.setattr(subprocess, "Popen", fake_popen)
+    return type("Spy", (), {"calls": calls, "box": box})()
+
+
+def collect(adapter, project_dir):
+    seen = []
+    result = adapter.run("review", project_dir, 600, on_event=seen.append)
+    return result, seen
+
+
+def test_a_callback_switches_the_cli_to_stream_json(adapter, popen_spy, project_dir):
+    collect(adapter, project_dir)
+    cmd = popen_spy.calls[0]["cmd"]
+
+    assert "stream-json" in cmd
+    # The CLI only streams under --print when --verbose is set too.
+    assert "--verbose" in cmd
+
+
+def test_streaming_still_enforces_read_only(adapter, popen_spy, project_dir):
+    collect(adapter, project_dir)
+    cmd = popen_spy.calls[0]["cmd"]
+
+    for tool in ALLOWED_TOOLS:
+        assert tool in cmd
+    for tool in DISALLOWED_TOOLS:
+        assert tool in cmd
+
+
+def test_no_callback_keeps_the_buffered_path(adapter, spy, project_dir):
+    # cron passes no renderer and must keep getting the single-envelope form.
+    adapter.run("review", project_dir, 600)
+    assert "json" in spy.calls[0]["cmd"]
+    assert "stream-json" not in spy.calls[0]["cmd"]
+
+
+def test_events_describe_the_run_as_it_happens(adapter, popen_spy, project_dir):
+    _, seen = collect(adapter, project_dir)
+    kinds = [e.kind for e in seen]
+
+    assert kinds == ["start", "text", "tool", "tool_result", "result"]
+
+    tool = seen[2]
+    assert tool.tool == "Grep"
+    assert "jwt" in tool.detail
+
+
+def test_streaming_findings_match_the_result_event(adapter, popen_spy, project_dir):
+    result, _ = collect(adapter, project_dir)
+
+    assert result.status == "ok"
+    assert result.findings_md == "- HIGH api/auth.py:142 — no exp"
+
+
+def test_a_malformed_line_is_skipped_not_fatal(adapter, popen_spy, project_dir):
+    popen_spy.box["proc"] = FakePopen(["not json\n", "\n", *STREAM])
+    result, seen = collect(adapter, project_dir)
+
+    assert result.status == "ok"
+    assert [e.kind for e in seen] == ["start", "text", "tool", "tool_result", "result"]
+
+
+def test_a_broken_renderer_does_not_lose_a_billed_run(adapter, popen_spy, project_dir):
+    def explode(event):
+        raise RuntimeError("renderer bug")
+
+    result = adapter.run("review", project_dir, 600, on_event=explode)
+
+    assert result.status == "ok"
+    assert result.findings_md == "- HIGH api/auth.py:142 — no exp"
+
+
+def test_prose_is_kept_when_the_result_event_never_arrives(adapter, popen_spy, project_dir):
+    # A stream cut short still cost quota, so whatever was said is the findings.
+    popen_spy.box["proc"] = FakePopen(STREAM[:2])
+    result, _ = collect(adapter, project_dir)
+
+    assert result.status == "ok"
+    assert result.findings_md == "Looking at the auth code."
+
+
+def test_a_nonzero_exit_reports_stderr(adapter, popen_spy, project_dir):
+    popen_spy.box["proc"] = FakePopen(STREAM, returncode=2, stderr_lines=["boom\n"])
+    result, _ = collect(adapter, project_dir)
+
+    assert result.status == "failed"
+    assert result.detail == "boom"
+    # The findings survive a bad exit code.
+    assert "api/auth.py:142" in result.findings_md
+
+
+def test_an_error_result_becomes_an_error_event(adapter, popen_spy, project_dir):
+    popen_spy.box["proc"] = FakePopen(
+        [line({"type": "result", "is_error": True, "result": "rate limited"})]
+    )
+    _, seen = collect(adapter, project_dir)
+
+    assert [e.kind for e in seen] == ["error"]
+    assert seen[0].text == "rate limited"
