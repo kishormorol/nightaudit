@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 
 from nightshift import adapters as adapter_registry
 from nightshift import prompts, report
-from nightshift.adapters.base import Adapter, RunResult
+from nightshift.adapters.base import Adapter, OnEvent, RunResult
 from nightshift.budget import Ledger
 from nightshift.config import Config, Project, Provider
 from nightshift.lock import Lock, LockBusy
@@ -170,10 +170,11 @@ def _attempt(
     task: str,
     timeout_s: int,
     attempt: int,
+    on_event: OnEvent | None = None,
 ) -> RunResult:
     started = _now()
     try:
-        result = adapter.run(prompt, project.path, timeout_s)
+        result = adapter.run(prompt, project.path, timeout_s, on_event=on_event)
     except NotImplementedError as exc:
         return RunResult(
             provider=adapter.name,
@@ -216,8 +217,13 @@ def run_once(
     ledger: Ledger | None = None,
     queue: Queue | None = None,
     get_adapter=None,
+    on_event: OnEvent | None = None,
 ) -> Outcome:
-    """One gated run. Returns without acting whenever a gate says no."""
+    """One gated run. Returns without acting whenever a gate says no.
+
+    ``on_event`` is passed straight to the adapter: pass a renderer for an
+    attended run, leave it ``None`` under cron.
+    """
     get_adapter = get_adapter or adapter_registry.get
     now = now or _now()
     ledger = ledger if ledger is not None else Ledger()
@@ -288,7 +294,7 @@ def run_once(
 
         for attempt in range(1, MAX_ATTEMPTS + 1):
             result = _attempt(
-                choice.adapter, prompt, project, task, cfg.timeout_s, attempt
+                choice.adapter, prompt, project, task, cfg.timeout_s, attempt, on_event
             )
             # Spend is recorded before the report is written: if the disk is
             # full we would rather lose the findings than lose the count.

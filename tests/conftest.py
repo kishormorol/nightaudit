@@ -91,9 +91,20 @@ class FakeAdapter:
     def last_human_use(self) -> datetime | None:
         return self.human_used_at
 
-    def run(self, prompt: str, project_dir: Path, timeout_s: int) -> RunResult:
+    def run(
+        self,
+        prompt: str,
+        project_dir: Path,
+        timeout_s: int,
+        on_event=None,
+    ) -> RunResult:
         self.calls.append(
-            {"prompt": prompt, "project_dir": project_dir, "timeout_s": timeout_s}
+            {
+                "prompt": prompt,
+                "project_dir": project_dir,
+                "timeout_s": timeout_s,
+                "on_event": on_event,
+            }
         )
         if self.results:
             outcome = self.results.pop(0)
