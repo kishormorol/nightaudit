@@ -20,6 +20,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
+from nightshift import sessions
 from nightshift.adapters.base import Availability, Event, OnEvent, RunResult
 
 #: Tools Claude Code may use: inspect the repo, nothing else.
@@ -184,18 +185,32 @@ class ClaudeCodeAdapter:
         return Path(os.path.expanduser(str(CLAUDE_PROJECTS_DIR)))
 
     def last_human_use(self) -> datetime | None:
-        """Newest mtime under ``~/.claude/projects``.
+        """Newest mtime under ``~/.claude/projects`` that was not ours.
 
         Returns ``None`` when the directory is absent — a fresh install has
         simply never been used, which reads as idle rather than as busy.
+
+        Our own runs write transcripts here too, named for the session id the
+        CLI reported, so those are skipped: counting them would make every run
+        gate the next one and nightshift would never run twice in a night.
+
+        Only files are considered. A directory's mtime bumps whenever anything
+        inside it is written — including our own transcript — so it cannot be
+        attributed to a human once nightshift shares the directory, and
+        counting it would defeat the check above.
         """
         root = self._projects_dir()
         if not root.is_dir():
             return None
+        mine = sessions.ours()
         newest: float | None = None
         try:
             for path in root.rglob("*"):
+                if path.stem in mine:
+                    continue
                 try:
+                    if not path.is_file():
+                        continue
                     mtime = path.stat().st_mtime
                 except OSError:
                     continue
@@ -277,6 +292,10 @@ class ClaudeCodeAdapter:
         stdout = (proc.stdout or "").strip()
         stderr = (proc.stderr or "").strip()
 
+        # Claim the session before anything can return: a transcript we do not
+        # claim is one we will later mistake for a human's.
+        self._claim_session(stdout)
+
         if proc.returncode != 0:
             detail = stderr.splitlines()[0] if stderr else f"exit {proc.returncode}"
             # A non-zero exit that still produced output is worth keeping.
@@ -344,11 +363,18 @@ class ClaudeCodeAdapter:
 
         result_text = ""
         prose: list[str] = []
+        claimed = False
         try:
             for line in proc.stdout or ():
                 payload = _parse_line(line)
                 if payload is None:
                     continue
+                if not claimed and payload.get("session_id"):
+                    # Claim on sight rather than at the end: a run killed at
+                    # the deadline still wrote a transcript, and an unclaimed
+                    # transcript is one we later read as a human's.
+                    sessions.record(str(payload["session_id"]))
+                    claimed = True
                 if payload.get("type") == "result" and not payload.get("is_error"):
                     value = payload.get("result")
                     if isinstance(value, str):
@@ -425,6 +451,16 @@ class ClaudeCodeAdapter:
                 yield Event("error", text=str(detail or "the run reported an error"))
             else:
                 yield Event("result")
+
+    @staticmethod
+    def _claim_session(stdout: str) -> None:
+        """Record the session id out of ``--output-format json``."""
+        try:
+            payload = json.loads(stdout)
+        except (json.JSONDecodeError, TypeError):
+            return
+        if isinstance(payload, dict):
+            sessions.record(str(payload.get("session_id") or ""))
 
     @staticmethod
     def _extract(stdout: str) -> str:

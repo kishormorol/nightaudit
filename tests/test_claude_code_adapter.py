@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from nightshift import sessions
 from nightshift.adapters.claude_code import (
     ALLOWED_TOOLS,
     DISALLOWED_TOOLS,
@@ -297,20 +298,102 @@ def test_last_human_use_finds_the_newest_mtime(adapter, tmp_path, monkeypatch):
     assert abs(found.timestamp() - recent.timestamp()) < 2
 
 
-def test_directory_mtimes_count_as_human_use(adapter, tmp_path, monkeypatch):
-    # Writing a session file bumps its parent directory too, so directories are
-    # evidence of activity in their own right. Erring toward "busy" keeps
-    # nightshift out of the user's way.
+def test_a_directory_alone_is_not_evidence_of_a_human(adapter, tmp_path, monkeypatch):
+    # This used to assert the opposite: a directory's mtime counted, erring
+    # toward "busy". That inverted once we learned nightshift's own runs write
+    # transcripts into these same directories — our write bumps the parent, so
+    # a directory mtime cannot be attributed to a human, and counting it would
+    # make every run gate the next one no matter which sessions we skip.
     root = tmp_path / "projects"
     (root / "proj-a").mkdir(parents=True)
+    _age(root / "proj-a", datetime.now() - timedelta(minutes=2))
 
-    now = datetime.now()
-    _age(root / "proj-a", now - timedelta(minutes=2))
+    monkeypatch.setattr("nightshift.adapters.claude_code.CLAUDE_PROJECTS_DIR", root)
+    assert adapter.last_human_use() is None
+
+
+# ---- our sessions vs theirs ------------------------------------------
+
+
+def _session(root, name, when):
+    path = root / "proj-a" / f"{name}.jsonl"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{}", encoding="utf-8")
+    _age(path, when)
+    return path
+
+
+def test_our_own_session_is_not_mistaken_for_a_human(adapter, tmp_path, monkeypatch):
+    # The bug this guards: `claude --print` writes its transcript into the same
+    # directory a human's session does, so every run left a fresh mtime that the
+    # next cron tick read as "someone is typing" — nightshift gated itself out
+    # for idle_minutes after every single run.
+    root = tmp_path / "projects"
+    _session(root, "ours-1234", datetime.now() - timedelta(minutes=1))
+    sessions.record("ours-1234")
+
+    monkeypatch.setattr("nightshift.adapters.claude_code.CLAUDE_PROJECTS_DIR", root)
+    assert adapter.last_human_use() is None
+
+
+def test_a_human_session_is_still_seen(adapter, tmp_path, monkeypatch):
+    root = tmp_path / "projects"
+    recent = datetime.now() - timedelta(minutes=4)
+    _session(root, "a-human-session", recent)
 
     monkeypatch.setattr("nightshift.adapters.claude_code.CLAUDE_PROJECTS_DIR", root)
     found = adapter.last_human_use()
     assert found is not None
-    assert abs(found.timestamp() - (now - timedelta(minutes=2)).timestamp()) < 2
+    assert abs(found.timestamp() - recent.timestamp()) < 2
+
+
+def test_a_human_in_the_same_project_still_blocks_us(adapter, tmp_path, monkeypatch):
+    # Filtering by project path would have hidden exactly this person — someone
+    # working in a repo nightshift also reviews, which is when it must back off.
+    root = tmp_path / "projects"
+    theirs = datetime.now() - timedelta(minutes=2)
+    _session(root, "ours-1234", datetime.now() - timedelta(minutes=1))  # newer!
+    _session(root, "theirs-9999", theirs)
+    sessions.record("ours-1234")
+
+    monkeypatch.setattr("nightshift.adapters.claude_code.CLAUDE_PROJECTS_DIR", root)
+    found = adapter.last_human_use()
+    assert found is not None
+    assert abs(found.timestamp() - theirs.timestamp()) < 2
+
+
+def test_the_streaming_path_claims_its_session(adapter, popen_spy, project_dir):
+    popen_spy.box["proc"] = FakePopen(
+        [line({"type": "system", "subtype": "init", "session_id": "sess-abc"}), *STREAM]
+    )
+    adapter.run("review", project_dir, 600, on_event=lambda e: None)
+
+    assert "sess-abc" in sessions.ours()
+
+
+def test_the_buffered_path_claims_its_session(adapter, spy, project_dir):
+    # cron's path before `watch` existed, and any caller that wants no events.
+    spy.box["proc"] = FakeProc(
+        stdout=json.dumps(
+            {"type": "result", "is_error": False, "result": "- LOW a.py:1 — x",
+             "session_id": "sess-xyz"}
+        )
+    )
+    adapter.run("review", project_dir, 600)
+
+    assert "sess-xyz" in sessions.ours()
+
+
+def test_a_session_claimed_twice_is_stored_once(adapter):
+    sessions.record("sess-dup")
+    sessions.record("sess-dup")
+    assert [i for i in sessions.ours() if i == "sess-dup"] == ["sess-dup"]
+
+
+def test_claiming_survives_a_missing_session_id(adapter, spy, project_dir):
+    spy.box["proc"] = FakeProc(stdout=envelope("- LOW a.py:1 — x"))
+    adapter.run("review", project_dir, 600)  # must not raise
+    assert sessions.ours() == set()
 
 
 # ---- streaming --------------------------------------------------------
