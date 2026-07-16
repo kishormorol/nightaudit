@@ -56,6 +56,18 @@ jobs:
         run: |
           ! python -m zipfile -l dist/*.whl | grep -q 'site/'
 
+      - name: The sdist must carry what it takes to build and test
+        # An allowlist can't silently lose a directory the way a denylist lets
+        # one in, but it can silently drop one. Anyone running `pip install
+        # --no-binary` builds from these files.
+        #
+        # Every other sdist guard lives in release.yml and so only runs on a
+        # tag. This one runs on the PR that would break the allowlist, which is
+        # where the mistake is still cheap.
+        run: |
+          tar -tzf dist/*.tar.gz | grep -q 'nightshift/prompts/code_review.md'
+          tar -tzf dist/*.tar.gz | grep -q 'tests/'
+
       - name: The version must not drift
         # pyproject's version is what PyPI publishes; __init__'s is what
         # `nightshift --version` prints. They are two hand-kept literals, so a
