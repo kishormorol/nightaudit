@@ -54,8 +54,12 @@ run:
 def stub_registry(monkeypatch):
     adapter = FakeAdapter()
 
-    monkeypatch.setattr("nightshift.cli.adapter_registry.get", lambda n: adapter)
-    monkeypatch.setattr("nightshift.scheduler.adapter_registry.get", lambda n: adapter)
+    monkeypatch.setattr(
+        "nightshift.cli.adapter_registry.get", lambda n, binary=None: adapter
+    )
+    monkeypatch.setattr(
+        "nightshift.scheduler.adapter_registry.get", lambda n, binary=None: adapter
+    )
     monkeypatch.setattr(
         "nightshift.cli.adapter_registry.names", lambda: ["claude_code"]
     )
@@ -267,7 +271,7 @@ def test_init_prints_cron_lines_and_can_decline_installing(
 
 def test_init_refuses_when_no_cli_is_installed(runner, monkeypatch, isolated_home):
     dead = FakeAdapter(is_available=False, unavailable_reason="not installed")
-    monkeypatch.setattr("nightshift.cli.adapter_registry.get", lambda n: dead)
+    monkeypatch.setattr("nightshift.cli.adapter_registry.get", lambda n, binary=None: dead)
     monkeypatch.setattr("nightshift.cli.adapter_registry.names", lambda: ["claude_code"])
     result = runner.invoke(main, ["init"])
     assert result.exit_code != 0

@@ -132,7 +132,7 @@ def choose_provider(
 
     for provider in enabled:
         try:
-            adapter = get_adapter(provider.name)
+            adapter = get_adapter(provider.name, provider.binary)
         except Exception as exc:
             reasons.append(f"{provider.name}: {exc}")
             continue

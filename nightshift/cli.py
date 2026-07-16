@@ -528,7 +528,13 @@ def status() -> None:
         if not provider.enabled:
             click.echo(f"  {provider.name:<12} disabled")
             continue
-        adapter = adapter_registry.get(provider.name)
+        try:
+            adapter = adapter_registry.get(provider.name, provider.binary)
+        except adapter_registry.AdapterError as exc:
+            # A `binary` the registry rejects must not take `status` down with
+            # it — status is the command you reach for to find out what is wrong.
+            click.echo(f"  ✗ {provider.name:<10} {exc}")
+            continue
         availability = adapter.availability()
         mark = "✓" if availability.ok else "✗"
         usage = ledger.usage(provider.name, provider.budget, now)
