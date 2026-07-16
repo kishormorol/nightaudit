@@ -183,11 +183,15 @@ nightshift digest --date 2026-07-14  # a past day
 nightshift digest --stdout           # print it instead of writing it
 ```
 
-## 0 files touched
+## 0 files touched by the AI
 
 nightshift's entire value depends on being safe to leave unattended, so
 read-only isn't a promise in the docs — it's enforced at the layer that
 actually executes tools.
+
+This section is about the AI, and the heading says so on purpose. If you
+configure [checks](#checks), those are your commands and they run as you — see
+below.
 
 The Claude Code adapter invokes the CLI with its own permission flags:
 
@@ -212,7 +216,62 @@ The prompts reinforce it, but prompts are not a security boundary and aren't
 treated as one. The flags are.
 
 nightshift also never touches your git state: no commits, no branches, no
-pushes. It reads, and it writes exactly one place — the digest directory.
+pushes. Left to itself it reads, and writes exactly one place — the digest
+directory.
+
+## Checks
+
+A task is a prompt for an AI that cannot write. A **check** is a command of
+your own, and nightshift runs it:
+
+```yaml
+projects:
+  - name: gradagent
+    tasks: [code_review]
+    checks:
+      - name: tests
+        run: pytest -q
+      - name: lint
+        run: ruff check .
+        timeout_s: 30
+```
+
+Each one runs in the project directory before the review, and lands in the
+digest with its exit code and the tail of its output:
+
+```
+### gradagent
+
+#### Checks
+
+- ✗ `tests` — `pytest -q` · exit 1
+
+  ```
+  3 failed, 128 passed
+  ```
+
+- ✓ `lint` — `ruff check .` · exit 0
+```
+
+**A check is outside the sandbox, and that is the point.** The AI is held
+read-only by flags it cannot argue with. Your check is your command, run with
+your permissions: `pytest` writes `.pytest_cache/` because you told it to.
+nightshift does not sandbox it and does not pretend to.
+
+Two things worth knowing before you add one:
+
+- **No shell.** The command is split into arguments and run directly, so `&&`,
+  pipes, `*` and `$(...)` are not interpreted — `run: rm -rf $HOME` passes the
+  four characters `$HOME` to `rm`. If you want a pipeline, point a check at a
+  script.
+- **`config.yaml` now executes.** Before checks it was inert data; anything that
+  can write it can now run commands as you, from cron. That is inherent to
+  asking a config file to run your tests. `~/.nightshift/prompts/` never gained
+  this property — a prompt is only ever text handed to a model.
+
+A check that fails, times out, or names a program that isn't installed is
+reported and nothing more. It never fails the review — the review is what you
+were waiting for.
 
 ## Don't let it burn your quota
 
@@ -265,6 +324,12 @@ projects:
     # Optional. Pin this project to one provider. Without it, whichever enabled
     # provider is idle and under budget takes the project.
     provider: codex
+    # Optional. Your own commands, run before the review. Unlike a task, these
+    # are NOT sandboxed — see "Checks".
+    checks:
+      - name: tests
+        run: pytest -q
+        timeout_s: 120
 
 schedule:
   windows: ["09:00-18:00", "00:00-06:00"]   # local time; may cross midnight

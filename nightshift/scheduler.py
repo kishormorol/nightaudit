@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
 from nightshift import adapters as adapter_registry
-from nightshift import events, prompts, report
+from nightshift import checks, events, prompts, report
 from nightshift.adapters.base import Adapter, OnEvent, RunResult
 from nightshift.budget import Ledger
 from nightshift.config import Config, Project, Provider
@@ -324,7 +324,15 @@ def run_once(
     events.prune()
     # The lock must size its stale threshold against the whole budget we might
     # spend, not one attempt of it, or a healthy run that retries looks dead.
-    lock = Lock(timeout_s=cfg.timeout_s, attempts=MAX_ATTEMPTS)
+    # Checks run under the lock too, and which project's we don't know yet — the
+    # rotation is only read once the lock is ours. So allow for the most any one
+    # project could spend. Erring high only makes a dead lock linger; erring low
+    # breaks a live one and starts a second run beside it.
+    lock = Lock(
+        timeout_s=cfg.timeout_s,
+        attempts=MAX_ATTEMPTS,
+        extra_s=max((checks.budget_s(p) for p in cfg.projects), default=0),
+    )
     try:
         lock.acquire()
     except LockBusy as exc:
@@ -358,6 +366,13 @@ def run_once(
             report.store_result(cfg, result)
             results.append(result)
             return Outcome(True, result.detail, results=results)
+
+        # 6. The project's own checks, before the review — so that a project
+        # which got its turn gets them run, even if the prompt below is broken.
+        # They are recorded whatever they say; a check is a report, not a gate.
+        check_results = checks.run_checks(project, _now())
+        if check_results:
+            report.store_check_results(cfg, check_results)
 
         try:
             prompt = prompts.load(task)

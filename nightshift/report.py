@@ -10,6 +10,7 @@ from pathlib import Path
 
 from nightshift.adapters.base import RunResult
 from nightshift.budget import Ledger
+from nightshift.checks import CheckResult
 from nightshift.config import Config
 from nightshift.store import read_json, write_json
 
@@ -209,6 +210,50 @@ def store_result(cfg: Config, result: RunResult) -> Path:
     return json_path
 
 
+def checks_dir(cfg: Config, on: date) -> Path:
+    """Check results live under the day, not in it.
+
+    A subdirectory rather than a discriminator field in the JSON, because
+    :func:`load_results` globs ``*.json`` non-recursively: a check result in the
+    day directory would be read as a malformed RunResult and silently dropped by
+    the guard there, which is a confusing way to find out about a design choice.
+    """
+    return day_dir(cfg, on) / "checks"
+
+
+def store_check_results(cfg: Config, results: list[CheckResult]) -> Path | None:
+    """Write one project's checks from one run as a single JSON file."""
+    if not results:
+        return None
+    directory = checks_dir(cfg, results[0].started_at.date())
+    directory.mkdir(parents=True, exist_ok=True)
+    when = results[0].started_at.strftime("%H%M%S")
+    stem = _unique_stem(directory, f"{_slug(results[0].project)}-{when}")
+    path = directory / f"{stem}.json"
+    write_json(path, {"checks": [r.to_dict() for r in results]})
+    return path
+
+
+def load_check_results(cfg: Config, on: date) -> list[CheckResult]:
+    """Every recorded check for a day, oldest first."""
+    directory = checks_dir(cfg, on)
+    if not directory.is_dir():
+        return []
+    results: list[CheckResult] = []
+    for path in sorted(directory.glob("*.json")):
+        raw = read_json(path, default=None)
+        if not isinstance(raw, dict):
+            continue
+        for entry in raw.get("checks", []):
+            try:
+                results.append(CheckResult.from_dict(entry))
+            except (KeyError, ValueError, TypeError):
+                # One unreadable check must not sink the digest, same as a run.
+                continue
+    results.sort(key=lambda r: r.started_at)
+    return results
+
+
 def load_results(cfg: Config, on: date) -> list[RunResult]:
     """Every recorded result for a day, oldest first."""
     directory = day_dir(cfg, on)
@@ -291,16 +336,39 @@ def _fmt_finding(f: Finding, *, with_project: bool) -> str:
     return f"- {f.emoji} {f.text} — _{context}_{ref}"
 
 
+#: A check reports its own verdict; these are not severities. A failing check is
+#: a fact ("exit 1"), not a judgement call the way a model's HIGH is.
+CHECK_MARK = {"pass": "✓", "fail": "✗", "timeout": "⏱", "error": "⚠"}
+
+
+def _check_lines(checks: list[CheckResult]) -> list[str]:
+    """One line per check, plus the output of any that did not pass."""
+    out: list[str] = []
+    for c in sorted(checks, key=lambda c: (c.project, c.started_at, c.name)):
+        mark = CHECK_MARK.get(c.status, "⚠")
+        detail = f"exit {c.exit_code}" if c.exit_code is not None else c.status
+        out.append(f"- {mark} `{c.name}` — `{c.command}` · {detail}")
+        if not c.ok and c.output:
+            out.append("")
+            out.append("  ```")
+            out.extend(f"  {line}" for line in c.output.splitlines())
+            out.append("  ```")
+            out.append("")
+    return out
+
+
 def render_digest(
     cfg: Config,
     on: date,
     ledger: Ledger | None = None,
     results: list[RunResult] | None = None,
     generated_at: datetime | None = None,
+    checks: list[CheckResult] | None = None,
 ) -> str:
     """Render ``DIGEST-YYYY-MM-DD.md`` for a day."""
     ledger = ledger if ledger is not None else Ledger()
     results = load_results(cfg, on) if results is None else results
+    checks = load_check_results(cfg, on) if checks is None else checks
     generated_at = generated_at or datetime.now()
 
     findings: list[Finding] = []
@@ -309,7 +377,12 @@ def render_digest(
             findings.extend(parse_findings(r))
     findings = dedupe(findings)
 
-    projects_seen = sorted({r.project for r in results if r.project != PLACEHOLDER})
+    # Checks count: a digest that renders a project section under a header
+    # claiming "0 projects" is arguing with itself.
+    projects_seen = sorted(
+        {r.project for r in results if r.project != PLACEHOLDER}
+        | {c.project for c in checks}
+    )
     out: list[str] = []
     out.append("# Nightshift · morning digest")
     out.append("")
@@ -326,12 +399,14 @@ def render_digest(
     out.extend(_budget_lines(cfg, ledger, on) or ["- _no providers enabled_"])
     out.append("")
 
-    if not results:
+    if not results and not checks:
         out.append("## Highlights")
         out.append("")
         out.append("Nothing ran today — no runs were recorded.")
         out.append("")
         return "\n".join(out).rstrip() + "\n"
+
+    failed_checks = [c for c in checks if not c.ok]
 
     out.append("## Highlights")
     out.append("")
@@ -339,26 +414,52 @@ def render_digest(
     if highlights:
         out.extend(_fmt_finding(f, with_project=True) for f in highlights)
     elif any(r.status == "ok" for r in results):
+        # "Clean" is a claim about the AI's reading of the code, and it must not
+        # be made over the top of a check that came back red.
         out.append("No findings — every run came back clean.")
     else:
         out.append("No findings — no run completed successfully today.")
+    if failed_checks:
+        out.append("")
+        names = ", ".join(sorted({f"`{c.name}` ({c.project})" for c in failed_checks}))
+        out.append(
+            f"{len(failed_checks)} configured "
+            f"check{'s' if len(failed_checks) != 1 else ''} did not pass: {names}."
+        )
     out.append("")
 
     by_project: dict[str, list[Finding]] = {}
     for f in findings:
         by_project.setdefault(f.project, []).append(f)
 
-    if by_project:
+    checks_by_project: dict[str, list[CheckResult]] = {}
+    for c in checks:
+        checks_by_project.setdefault(c.project, []).append(c)
+
+    with_content = sorted(set(by_project) | set(checks_by_project))
+    if with_content:
         out.append("## By project")
         out.append("")
-        for project in sorted(by_project):
-            items = sorted(by_project[project], key=lambda f: (f.rank, f.task))
+        for project in with_content:
             out.append(f"### {project}")
             out.append("")
-            out.append(f"{len(items)} finding{'s' if len(items) != 1 else ''}")
-            out.append("")
-            out.extend(_fmt_finding(f, with_project=False) for f in items)
-            out.append("")
+
+            project_checks = checks_by_project.get(project, [])
+            if project_checks:
+                out.append("#### Checks")
+                out.append("")
+                out.extend(_check_lines(project_checks))
+                out.append("")
+
+            items = sorted(by_project.get(project, []), key=lambda f: (f.rank, f.task))
+            if items or not project_checks:
+                if project_checks:
+                    out.append("#### Findings")
+                    out.append("")
+                out.append(f"{len(items)} finding{'s' if len(items) != 1 else ''}")
+                out.append("")
+                out.extend(_fmt_finding(f, with_project=False) for f in items)
+                out.append("")
 
     out.append("## Run log")
     out.append("")

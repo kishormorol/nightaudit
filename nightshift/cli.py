@@ -143,7 +143,8 @@ def main() -> None:
     """Your AI works the night shift.
 
     Read-only reviews of your projects while you're busy, one digest every
-    morning. nightshift never modifies your code.
+    morning. The AI never modifies your code. Checks you configure yourself are
+    your own commands and run as you — see `Checks` in the README.
     """
 
 
