@@ -71,6 +71,34 @@ jobs:
             exit 1
           }
 
+      - name: The classifiers must match the Pythons we test
+        # The classifiers are what PyPI advertises; the matrix above is what
+        # actually passes. Two hand-kept lists, and only one of them ever runs,
+        # so a new Python can be tested for months while PyPI still calls it
+        # unsupported — which is exactly how 3.13 missed the 0.1.1 release.
+        run: |
+          pip install -q pyyaml
+          python - <<'PY'
+          import pathlib, sys, tomllib, yaml
+
+          project = tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]
+          advertised = {
+              c.rsplit("::", 1)[1].strip()
+              for c in project["classifiers"]
+              if c.startswith("Programming Language :: Python :: ")
+          }
+          tested = set(
+              yaml.safe_load(pathlib.Path(".github/workflows/ci.yml").read_text())
+              ["jobs"]["test"]["strategy"]["matrix"]["python-version"]
+          )
+          if advertised != tested:
+              sys.exit(
+                  f"PyPI would advertise {sorted(advertised)} "
+                  f"but CI tests {sorted(tested)}"
+              )
+          print(f"classifiers match the matrix: {sorted(tested)}")
+          PY
+
       - name: The README demo must match its generator
         # docs/demo.svg is generated and committed. Editing make-demo.py without
         # re-running it would leave the README showing stale CLI output.
