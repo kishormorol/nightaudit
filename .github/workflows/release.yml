@@ -20,16 +20,26 @@ jobs:
           python -m pip install --upgrade pip build twine
           python -m build
 
-      - name: The tag must match the version in pyproject
+      - name: The tag must match the version, and the version must agree with itself
         # A tag that disagrees with pyproject publishes a version nobody asked
         # for, under a name the git history does not have. PyPI will not let it
         # be taken back, so disagree here instead.
+        #
+        # All three must say the same thing: the tag, what pyproject publishes,
+        # and what `nightshift --version` reports. CI holds the last two
+        # together on every PR, but a tag push does not run CI — so check here
+        # too rather than trust that it did.
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           tag="${GITHUB_REF_NAME#v}"
           version="$(python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          package="$(python -c 'import nightshift; print(nightshift.__version__)')"
           test "$tag" = "$version" || {
             echo "tag $GITHUB_REF_NAME != pyproject version $version"
+            exit 1
+          }
+          test "$version" = "$package" || {
+            echo "pyproject says $version, the package reports $package"
             exit 1
           }
 
