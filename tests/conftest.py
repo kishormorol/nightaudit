@@ -19,6 +19,15 @@ from pathlib import Path
 
 import pytest
 
+#: Captured at import, before ``no_real_subprocesses`` can patch them, so
+#: ``real_subprocess`` has the genuine articles to put back. All four, not just
+#: ``run``: the real ``run`` is built on ``Popen``, so restoring ``run`` alone
+#: leaves it calling a blocked ``Popen`` one layer down — which surfaces as
+#: "tried to spawn a real subprocess" from a line that plainly did not.
+_REAL_SUBPROCESS = {
+    name: getattr(subprocess, name) for name in ("run", "Popen", "check_output", "call")
+}
+
 from nightshift.adapters.base import Availability, RunResult
 from nightshift.config import Config, parse
 
@@ -44,7 +53,8 @@ def no_real_subprocesses(monkeypatch, request):
 
     Tests that need to drive subprocess behaviour install their own mock on top
     of this one (see ``test_claude_code_adapter.py``); this fixture only catches
-    the calls nobody meant to make.
+    the calls nobody meant to make. Tests of the check runner ask for
+    ``real_subprocess`` instead — see the note there.
     """
 
     def forbidden(cmd, *args, **kwargs):
@@ -58,6 +68,28 @@ def no_real_subprocesses(monkeypatch, request):
     monkeypatch.setattr(subprocess, "Popen", forbidden)
     monkeypatch.setattr(subprocess, "check_output", forbidden)
     monkeypatch.setattr(subprocess, "call", forbidden)
+
+
+@pytest.fixture
+def real_subprocess(monkeypatch, no_real_subprocesses):
+    """Let this test actually spawn processes.
+
+    Depends on ``no_real_subprocesses`` for the ordering, not the behaviour: it
+    has to have installed its block before this can lift it, and naming it is
+    the only way to say so.
+
+    ``no_real_subprocesses`` exists to stop a test silently billing an AI
+    subscription. A check is not an AI CLI — it is the user's own command, and
+    spawning it *is* the behaviour under test. Mocking subprocess here would
+    leave run_check's timeout, exit code and command-not-found handling asserted
+    only against a fake that agrees with whatever we already assumed, which is
+    how you ship a runner that has never run anything.
+
+    Every command in those tests is ``sys.executable``, so this spends no quota
+    and depends on nothing being installed.
+    """
+    for name, original in _REAL_SUBPROCESS.items():
+        monkeypatch.setattr(subprocess, name, original)
 
 
 @dataclass

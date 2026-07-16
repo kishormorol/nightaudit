@@ -55,7 +55,9 @@ class Lock:
     prevent.
 
     Callers that retry must therefore say so via ``attempts``, or the lock will
-    size the threshold for a single run.
+    size the threshold for a single run. Callers that do other work under the
+    lock — running a project's configured checks, say — must declare it via
+    ``extra_s`` for the same reason.
     """
 
     def __init__(
@@ -63,9 +65,15 @@ class Lock:
         path: Path | None = None,
         timeout_s: int = 600,
         attempts: int = 1,
+        extra_s: float = 0,
     ):
         self.path = path or lock_path()
         self.timeout_s = timeout_s
+        #: Time the holder may spend under the lock on work that is not an
+        #: adapter attempt — currently the project's configured checks. Same
+        #: hazard as ``attempts``: work the threshold does not know about is
+        #: exactly what makes a healthy holder look dead.
+        self.extra_s = max(float(extra_s), 0.0)
         #: Total tries the holder may make, each up to ``timeout_s`` — the first
         #: one included, not retries stacked on top of it. ``attempts=2`` is one
         #: try and one retry, matching the scheduler's ``range(1, MAX_ATTEMPTS + 1)``.
@@ -81,7 +89,7 @@ class Lock:
     @property
     def max_run_s(self) -> float:
         """The longest a healthy holder can legitimately take."""
-        return self.timeout_s * self.attempts
+        return self.timeout_s * self.attempts + self.extra_s
 
     @property
     def stale_after_s(self) -> float:

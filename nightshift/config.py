@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta
 from pathlib import Path
@@ -24,6 +25,9 @@ DEFAULT_IDLE_MINUTES = 60
 DEFAULT_TIMEOUT_S = 600
 DEFAULT_MAX_RUNS_PER_DAY = 6
 DEFAULT_MAX_RUNS_PER_WEEK = 30
+#: Checks are local commands, not model calls — a test suite that hasn't spoken
+#: in two minutes is likely wedged. Raise it per check for a genuinely slow one.
+DEFAULT_CHECK_TIMEOUT_S = 120
 
 _TASK_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 _WINDOW_RE = re.compile(r"^\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*$")
@@ -65,6 +69,26 @@ class Provider:
 
 
 @dataclass(frozen=True)
+class Check:
+    """One command of the user's own, run in the project directory.
+
+    Unlike a task — which is a prompt handed to a read-only AI — a check is
+    executed. nightshift makes no attempt to sandbox it: it runs as the user who
+    runs nightshift, with their permissions, and may write whatever it likes.
+    ``pytest`` leaves ``.pytest_cache/`` behind because it was asked to.
+    """
+
+    name: str
+    run: str
+    timeout_s: int = DEFAULT_CHECK_TIMEOUT_S
+
+    @property
+    def argv(self) -> list[str]:
+        """The command as a list. Parsed at config time, so it can't fail here."""
+        return shlex.split(self.run)
+
+
+@dataclass(frozen=True)
 class Project:
     name: str
     path: Path
@@ -74,6 +98,9 @@ class Project:
     #: of budget, still in use, or not installed, the project waits rather than
     #: being reviewed by someone else.
     provider: str | None = None
+    #: Commands to run before the review. Empty for a project that only wants
+    #: an AI to read it, which is every project until someone asks otherwise.
+    checks: tuple[Check, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -234,6 +261,68 @@ def _parse_providers(raw: Any) -> dict[str, Provider]:
     return providers
 
 
+def _parse_checks(raw: Any, where: str) -> tuple[Check, ...]:
+    """Validate a project's ``checks:`` list.
+
+    The command is split here rather than at run time so that a quoting mistake
+    is a config error you see while editing the file, not a 3am failure in a
+    digest. Whether the program *exists* is left alone for the same reason
+    ``providers.*.binary`` is: that depends on the machine, not the file.
+    """
+    if raw is None:
+        return ()
+    if not isinstance(raw, list) or not raw:
+        raise ConfigError(
+            f"{where}: expected a non-empty list of checks, got {raw!r} — drop "
+            f"the key entirely if this project has none"
+        )
+
+    checks: list[Check] = []
+    seen: set[str] = set()
+    for i, entry in enumerate(raw):
+        at = f"{where}[{i}]"
+        data = _require_mapping(entry, at)
+        unknown = set(data) - {"name", "run", "timeout_s"}
+        if unknown:
+            raise ConfigError(
+                f"{at}: unknown field(s) {sorted(unknown)} — expected name, run, "
+                f"timeout_s"
+            )
+
+        name = data.get("name")
+        if not isinstance(name, str) or not name.strip():
+            raise ConfigError(f"{at}.name: expected a non-empty string, got {name!r}")
+        name = name.strip()
+        if name in seen:
+            raise ConfigError(
+                f"{at}.name: duplicate check name {name!r} — names identify a "
+                f"check in the digest, so they must be unique within a project"
+            )
+        seen.add(name)
+
+        command = data.get("run")
+        if not isinstance(command, str) or not command.strip():
+            raise ConfigError(
+                f'{at}.run: expected a command, e.g. "pytest -q", got {command!r}'
+            )
+        try:
+            argv = shlex.split(command)
+        except ValueError as exc:
+            raise ConfigError(f"{at}.run: {command!r} is not a valid command — {exc}") from None
+        if not argv:
+            raise ConfigError(f"{at}.run: {command!r} has no command in it")
+
+        timeout_s = data.get("timeout_s", DEFAULT_CHECK_TIMEOUT_S)
+        checks.append(
+            Check(
+                name=name,
+                run=command.strip(),
+                timeout_s=_parse_positive_int(timeout_s, f"{at}.timeout_s"),
+            )
+        )
+    return tuple(checks)
+
+
 def _parse_binary(value: Any, where: str) -> str | None:
     """A command name or a path to one. Existence is the adapter's problem.
 
@@ -270,11 +359,11 @@ def _parse_projects(raw: Any) -> tuple[Project, ...]:
     for i, entry in enumerate(raw):
         where = f"projects[{i}]"
         data = _require_mapping(entry, where)
-        unknown = set(data) - {"name", "path", "tasks", "provider"}
+        unknown = set(data) - {"name", "path", "tasks", "provider", "checks"}
         if unknown:
             raise ConfigError(
                 f"{where}: unknown field(s) {sorted(unknown)} — "
-                f"expected name, path, tasks, provider"
+                f"expected name, path, tasks, provider, checks"
             )
 
         name = data.get("name")
@@ -331,6 +420,7 @@ def _parse_projects(raw: Any) -> tuple[Project, ...]:
                 path=expand(raw_path),
                 tasks=tuple(tasks),
                 provider=pinned,
+                checks=_parse_checks(data.get("checks"), f"{where}.checks"),
             )
         )
     return tuple(projects)

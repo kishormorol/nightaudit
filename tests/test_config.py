@@ -4,7 +4,14 @@ from datetime import datetime, time
 
 import pytest
 
-from nightshift.config import ConfigError, Schedule, load, parse, parse_window
+from nightshift.config import (
+    DEFAULT_CHECK_TIMEOUT_S,
+    ConfigError,
+    Schedule,
+    load,
+    parse,
+    parse_window,
+)
 
 
 def test_parses_the_spec_example(tmp_path):
@@ -182,6 +189,85 @@ def test_all_providers_disabled_is_an_error():
 def test_unknown_provider_names_the_known_ones():
     with pytest.raises(ConfigError, match="claude_code"):
         parse({"providers": {"claude_kode": {"enabled": True}}, "projects": []})
+
+
+def _with_checks(checks):
+    return {
+        "providers": {"claude_code": {"enabled": True}},
+        "projects": [
+            {"name": "p", "path": "/tmp/p", "tasks": ["code_review"], "checks": checks}
+        ],
+    }
+
+
+def test_a_project_has_no_checks_by_default():
+    cfg = parse(
+        {
+            "providers": {"claude_code": {"enabled": True}},
+            "projects": [{"name": "p", "path": "/tmp/p", "tasks": ["code_review"]}],
+        }
+    )
+    assert cfg.projects[0].checks == ()
+
+
+def test_checks_are_parsed_in_order():
+    cfg = parse(
+        _with_checks(
+            [
+                {"name": "tests", "run": "pytest -q"},
+                {"name": "lint", "run": "ruff check .", "timeout_s": 30},
+            ]
+        )
+    )
+    checks = cfg.projects[0].checks
+    assert [c.name for c in checks] == ["tests", "lint"]
+    assert checks[0].run == "pytest -q"
+    assert checks[0].timeout_s == DEFAULT_CHECK_TIMEOUT_S
+    assert checks[1].timeout_s == 30
+
+
+def test_a_command_is_split_into_argv_not_handed_to_a_shell():
+    check = parse(_with_checks([{"name": "t", "run": "pytest -q -k 'not slow'"}])).projects[0].checks[0]
+    assert check.argv == ["pytest", "-q", "-k", "not slow"]
+
+
+def test_an_unbalanced_quote_is_caught_while_you_are_editing_the_file():
+    # Rather than at 3am, in a digest, as a check that mysteriously never ran.
+    with pytest.raises(ConfigError, match="is not a valid command"):
+        parse(_with_checks([{"name": "t", "run": "pytest -k 'unclosed"}]))
+
+
+def test_a_check_that_names_no_command_is_rejected():
+    with pytest.raises(ConfigError, match="expected a command"):
+        parse(_with_checks([{"name": "t", "run": "   "}]))
+
+
+def test_duplicate_check_names_are_rejected():
+    with pytest.raises(ConfigError, match="duplicate check name"):
+        parse(_with_checks([{"name": "t", "run": "a"}, {"name": "t", "run": "b"}]))
+
+
+def test_an_unknown_check_field_names_the_expected_ones():
+    with pytest.raises(ConfigError, match="expected name, run, timeout_s"):
+        parse(_with_checks([{"name": "t", "run": "a", "shell": True}]))
+
+
+@pytest.mark.parametrize("value", [0, -1, "soon", True])
+def test_a_check_timeout_must_be_a_positive_number(value):
+    with pytest.raises(ConfigError, match=r"checks\[0\].timeout_s"):
+        parse(_with_checks([{"name": "t", "run": "a", "timeout_s": value}]))
+
+
+def test_an_empty_checks_list_says_to_drop_the_key():
+    with pytest.raises(ConfigError, match="drop the key"):
+        parse(_with_checks([]))
+
+
+def test_a_check_naming_a_program_that_does_not_exist_still_parses():
+    # Same reason as providers.*.binary: what is installed depends on the
+    # machine, not the file. The runner reports it as an error, in the digest.
+    cfg = parse(_with_checks([{"name": "t", "run": "/nowhere/nonesuch --fast"}]))
+    assert cfg.projects[0].checks[0].argv == ["/nowhere/nonesuch", "--fast"]
 
 
 def _with_binary(value):

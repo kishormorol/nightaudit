@@ -3,7 +3,17 @@
 > Your AI works the night shift. A Python CLI that puts your idle AI coding
 > subscription (Claude Code; Codex/Copilot later) to work while you're busy:
 > read-only reviews of your projects during configured hours, one markdown
-> digest every morning. It NEVER modifies any project file.
+> digest every morning. It NEVER lets a provider modify any project file.
+
+> **On that "NEVER".** It used to read "It NEVER modifies any project file",
+> which stopped being true the moment projects could configure `checks:` —
+> commands of the user's own that nightshift executes. The guarantee that
+> matters is the one nightshift can actually enforce, and it enforces it against
+> the AI: a provider gets a read-only sandbox and cannot escape it. A check is
+> the user's command, run with the user's permissions, and `pytest` writes
+> `.pytest_cache/` because they asked it to. Narrowing the sentence is not a
+> weakening of the sandbox — the sandbox is unchanged — it is the sentence
+> catching up with what is inside it and what is outside.
 
 ## Goals / non-goals
 
