@@ -1,17 +1,22 @@
-"""Which Claude Code sessions were ours.
+"""Which AI CLI sessions were ours rather than a human's.
 
-:meth:`ClaudeCodeAdapter.last_human_use` decides whether a human is at the
-keyboard by reading the newest mtime under ``~/.claude/projects``. nightshift's
-own ``claude --print`` runs write their transcripts into that same directory —
-the same directory, not merely a similar one — so without this every run would
-leave a fresh mtime that the next cron tick reads as human activity, and
-nightshift would gate itself out for ``idle_minutes`` after each run. It would
-put itself to sleep.
+``last_human_use`` decides whether a human is at the keyboard by reading the
+newest mtime under the CLI's own session directory — ``~/.claude/projects`` for
+Claude Code, ``$CODEX_HOME/sessions`` for Codex. nightshift's own runs write
+their transcripts into that same directory — the same directory, not merely a
+similar one — so without this every run would leave a fresh mtime that the next
+cron tick reads as human activity, and nightshift would gate itself out for
+``idle_minutes`` after each run. It would put itself to sleep.
 
-Filtering by project path cannot fix that: a human running Claude Code inside a
+Filtering by project path cannot fix that: a human running the CLI inside a
 registered project is precisely when nightshift must stay away. The only honest
-discriminator is which session the transcript belongs to, and the CLI hands us
-its ``session_id`` on both output formats.
+discriminator is which session the transcript belongs to, and both CLIs hand us
+an id for the session they just ran — ``session_id`` from Claude Code,
+``thread_id`` from Codex's ``thread.started``.
+
+Ids from every provider share one set. They are opaque and provider-unique, so a
+Codex id can never match a Claude transcript or the reverse; keeping one set
+means one thing to prune and one thing to lose.
 
 This is a cache, not a record. Losing it makes nightshift shy for an hour, not
 wrong, so every function here fails quiet.

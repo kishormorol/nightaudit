@@ -14,14 +14,23 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import signal
 import subprocess
-import threading
-import time
 from datetime import datetime
 from pathlib import Path
 
 from nightshift import sessions
+from nightshift.adapters._process import (
+    emit as _emit,
+)
+from nightshift.adapters._process import (
+    format_input as _format_input,
+)
+from nightshift.adapters._process import (
+    stream_ndjson,
+)
+from nightshift.adapters._process import (
+    summarize as _summarize,
+)
 from nightshift.adapters.base import Availability, Event, OnEvent, RunResult
 
 #: Tools Claude Code may use: inspect the repo, nothing else.
@@ -45,31 +54,11 @@ DISALLOWED_TOOLS = (
 #: here is our proxy for "a human is using this right now".
 CLAUDE_PROJECTS_DIR = Path("~/.claude/projects")
 
-#: Slack given to a process that should already be dying, before we conclude
-#: the deadline timer failed and kill the tree ourselves.
-_REAP_GRACE_S = 10
-
 _READ_ONLY_PREAMBLE = (
     "You are running unattended as part of an automated read-only review.\n"
     "You have no write, edit, or shell tools — do not attempt to use them, and "
     "do not ask questions. Inspect the repository and report findings only.\n\n"
 )
-
-
-def _parse_line(line: str) -> dict | None:
-    """One NDJSON event, or ``None`` for anything we can't read.
-
-    A malformed line is skipped rather than fatal: the stream is telemetry,
-    and the run's outcome must not hinge on our parsing every frame of it.
-    """
-    line = line.strip()
-    if not line:
-        return None
-    try:
-        payload = json.loads(line)
-    except json.JSONDecodeError:
-        return None
-    return payload if isinstance(payload, dict) else None
 
 
 def _content(payload: dict) -> list[dict]:
@@ -80,70 +69,6 @@ def _content(payload: dict) -> list[dict]:
     if not isinstance(blocks, list):
         return []
     return [b for b in blocks if isinstance(b, dict)]
-
-
-def _format_input(value: object, limit: int = 60) -> str:
-    """Render tool input as ``key: value``, short enough for one line."""
-    if not isinstance(value, dict) or not value:
-        return ""
-    parts = []
-    for key, item in list(value.items())[:2]:
-        text = str(item).replace("\n", " ")
-        if len(text) > limit:
-            text = text[: limit - 1] + "…"
-        parts.append(f"{key}: {text}")
-    return ", ".join(parts)
-
-
-def _summarize(content: object, limit: int = 70) -> str:
-    """One line describing a tool result."""
-    if isinstance(content, list):
-        content = " ".join(
-            str(b.get("text", "")) for b in content if isinstance(b, dict)
-        )
-    text = str(content or "").strip()
-    if not text:
-        return ""
-    lines = text.splitlines()
-    first = lines[0]
-    if len(first) > limit:
-        first = first[: limit - 1] + "…"
-    if len(lines) > 1:
-        first += f"  (+{len(lines) - 1} lines)"
-    return first
-
-
-def _emit(on_event: OnEvent, event: Event) -> None:
-    """A broken renderer must not fail a run that has already been billed."""
-    try:
-        on_event(event)
-    except Exception:  # noqa: BLE001 - the callback is the caller's problem
-        pass
-
-
-def _drain(stream, sink: list[str]) -> None:
-    if stream is None:
-        return
-    try:
-        for line in stream:
-            sink.append(line.rstrip("\n"))
-    except (OSError, ValueError):
-        pass
-
-
-def _kill_tree(proc: subprocess.Popen) -> None:
-    """Kill the CLI and anything it spawned.
-
-    ``start_new_session`` made it a process-group leader precisely so this
-    can reach its children.
-    """
-    try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-    except (OSError, ProcessLookupError):
-        try:
-            proc.kill()
-        except OSError:
-            pass
 
 
 class ClaudeCodeAdapter:
@@ -331,110 +256,47 @@ class ClaudeCodeAdapter:
 
         The buffered path above gets its timeout and its process-group kill
         from ``subprocess.run``; reading the stream ourselves means we have to
-        reproduce both, so a timeout here still takes the whole tree with it
-        rather than leaving orphans holding the quota.
+        reproduce both, which is what ``stream_ndjson`` is for — a timeout here
+        still takes the whole tree with it rather than leaving orphans holding
+        the quota.
         """
+        state = {"result_text": "", "claimed": False}
+        prose: list[str] = []
+
+        def on_line(payload: dict) -> None:
+            if not state["claimed"] and payload.get("session_id"):
+                # Claim on sight rather than at the end: a run killed at the
+                # deadline still wrote a transcript, and an unclaimed transcript
+                # is one we later read as a human's.
+                sessions.record(str(payload["session_id"]))
+                state["claimed"] = True
+            if payload.get("type") == "result" and not payload.get("is_error"):
+                value = payload.get("result")
+                if isinstance(value, str):
+                    state["result_text"] = value.strip()
+            for event in self._events_for(payload):
+                if event.kind == "text":
+                    prose.append(event.text)
+                _emit(on_event, event)
+
         try:
-            proc = subprocess.Popen(
-                self.command(prompt, stream=True),
-                cwd=str(project_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                stdin=subprocess.DEVNULL,
-                text=True,
-                bufsize=1,
-                start_new_session=True,
+            outcome = stream_ndjson(
+                self.command(prompt, stream=True), project_dir, timeout_s, on_line
             )
         except FileNotFoundError:
             return finish("failed", "", f"`{self.binary}` is not on PATH")
         except OSError as exc:
             return finish("failed", "", f"could not start `{self.binary}`: {exc}")
 
-        timed_out = threading.Event()
-        guard = threading.Lock()
-        reaped = False
-
-        def on_deadline() -> None:
-            # The timer races the normal exit. Once the process has been
-            # waited for, its pid can be reused — killing "it" would then
-            # SIGKILL an unrelated process group.
-            with guard:
-                if reaped or proc.poll() is not None:
-                    return
-                timed_out.set()
-                _kill_tree(proc)
-
-        deadline = time.monotonic() + timeout_s
-        timer = threading.Timer(timeout_s, on_deadline)
-        timer.daemon = True
-        timer.start()
-
-        stderr_lines: list[str] = []
-        drain = threading.Thread(target=_drain, args=(proc.stderr, stderr_lines), daemon=True)
-        drain.start()
-
-        result_text = ""
-        prose: list[str] = []
-        claimed = False
-        try:
-            for line in proc.stdout or ():
-                payload = _parse_line(line)
-                if payload is None:
-                    continue
-                if not claimed and payload.get("session_id"):
-                    # Claim on sight rather than at the end: a run killed at
-                    # the deadline still wrote a transcript, and an unclaimed
-                    # transcript is one we later read as a human's.
-                    sessions.record(str(payload["session_id"]))
-                    claimed = True
-                if payload.get("type") == "result" and not payload.get("is_error"):
-                    value = payload.get("result")
-                    if isinstance(value, str):
-                        result_text = value.strip()
-                for event in self._events_for(payload):
-                    if event.kind == "text":
-                        prose.append(event.text)
-                    _emit(on_event, event)
-        finally:
-            # The timer stays armed across the wait, because it is the only
-            # thing that can end a child which closed stdout and then hung —
-            # an EOF here does not mean the process is going to exit. Cancelling
-            # it before an unbounded wait() left nothing to terminate such a
-            # run, and cron would sit on the lock until someone noticed.
-            try:
-                proc.wait(timeout=max(deadline - time.monotonic(), 0) + _REAP_GRACE_S)
-            except subprocess.TimeoutExpired:
-                # The timer should have fired by now; it did not, so do its job.
-                _kill_tree(proc)
-                try:
-                    proc.wait(timeout=_REAP_GRACE_S)
-                except subprocess.TimeoutExpired:
-                    pass
-            timer.cancel()
-            with guard:
-                # Only now may on_deadline be told to keep its hands off: the
-                # process is reaped and its pid is free to be reused.
-                reaped = True
-            drain.join(timeout=2)
-            # Close the pipes rather than leaving them to the collector.
-            for pipe in (proc.stdout, proc.stderr):
-                try:
-                    if pipe is not None:
-                        pipe.close()
-                except OSError:
-                    pass
-
         # Whatever the CLI managed to say before the deadline is still worth
         # keeping — the run was billed either way.
-        findings = result_text or "\n\n".join(prose).strip()
+        findings = state["result_text"] or "\n\n".join(prose).strip()
 
-        if timed_out.is_set():
+        if outcome.timed_out:
             return finish("timeout", findings, f"no output after {timeout_s}s")
 
-        if proc.returncode != 0:
-            stderr = "\n".join(stderr_lines).strip()
-            detail = stderr.splitlines()[0] if stderr else f"exit {proc.returncode}"
-            return finish("failed", findings, detail)
+        if outcome.returncode != 0:
+            return finish("failed", findings, outcome.stderr_head)
 
         if not findings:
             return finish("failed", "", "no output")

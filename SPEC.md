@@ -21,6 +21,15 @@ documented stubs marked "help wanted").
 > independent of the Python package — the wheel does not contain it and the
 > CLI does not depend on it.
 
+> **Amended:** the Codex adapter shipped, so "working Codex/Copilot adapters"
+> is only half a non-goal now. Codex earned it by having something to stand on:
+> `codex exec` runs under an OS sandbox (Seatbelt / Landlock+seccomp), which
+> enforces read-only more strongly than the Claude adapter's tool allowlist —
+> the kernel refuses the write rather than the agent declining to ask. Copilot
+> remains a stub, and remains one for a reason recorded in `copilot.py`: its
+> denials do not bind every tool, so it cannot clear the bar below. The bar did
+> not move to let Codex in; Codex met it.
+
 ## Tech
 
 - Python 3.10+, installable via pipx (`pyproject.toml`, console script `nightshift`)
@@ -54,9 +63,10 @@ nightshift/
 │   │   └── dead_links.md
 │   └── adapters/
 │       ├── base.py      # Adapter protocol + RunResult
+│       ├── _process.py  # spawn/stream/deadline/reap, shared by both adapters
 │       ├── claude_code.py
-│       ├── codex.py     # stub: raises NotImplementedError, docstring "help wanted"
-│       └── copilot.py   # stub: same
+│       ├── codex.py     # read-only enforced by Codex's OS sandbox
+│       └── copilot.py   # stub: raises NotImplementedError, blocked upstream
 ├── docs/RECORDING.md    # how to shoot the README hero GIF
 ├── site/                # the landing page (see "Landing page")
 └── tests/
@@ -234,8 +244,9 @@ mockup can promise anything; a published page is a claim. Concretely, and
 non-negotiably:
 
 - No provider is advertised as working until its adapter actually runs. Codex
-  and Copilot are drawn as stubs and captioned as such. If one ships, flip
-  `ready` in `components/pipeline.tsx` — do not restore the board's wording.
+  shipped and its chip is now `ready`; Copilot is drawn as a stub and captioned
+  as such. If it ships, flip `ready` in `components/pipeline.tsx` — do not
+  restore the board's wording.
 - No fabricated metrics. The board's "★ 2.4k" is not on the page and no star
   count, download count, or user count goes on it that isn't real and sourced.
 - Sample output must match what the CLI actually prints.
