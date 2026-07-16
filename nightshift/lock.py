@@ -66,7 +66,10 @@ class Lock:
     ):
         self.path = path or lock_path()
         self.timeout_s = timeout_s
-        #: How many times the holder may retry, each up to ``timeout_s``.
+        #: Total tries the holder may make, each up to ``timeout_s`` — the first
+        #: one included, not retries stacked on top of it. ``attempts=2`` is one
+        #: try and one retry, matching the scheduler's ``range(1, MAX_ATTEMPTS + 1)``.
+        #: Read as "retries" it would double the threshold it was meant to set.
         self.attempts = max(int(attempts), 1)
         self._held = False
         #: Stamp we wrote when we took the lock. Together with the pid it is

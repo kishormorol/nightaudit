@@ -217,16 +217,29 @@ def test_a_stale_lock_is_broken(night_cfg, get_fake, fake_adapter, isolated_home
 def test_a_lock_held_by_a_retrying_run_is_left_alone(
     night_cfg, get_fake, fake_adapter, isolated_home
 ):
-    """1800s in, a holder that retried is slow — not dead.
+    """A holder that retried is slow, not dead.
 
-    Past a single attempt's threshold (2 × 600s), inside a two-attempt one
-    (2 × 2 × 600s). The scheduler grants MAX_ATTEMPTS, so it must size the lock
-    for all of them; if it sizes for one, this live lock gets broken and a
-    second run starts beside the first.
+    The age is derived rather than hardcoded so it stays *between* the two
+    thresholds if `timeout_s` or MAX_ATTEMPTS ever move — a literal here would
+    fail for arithmetic reasons having nothing to do with the behaviour, which
+    is exactly how test_a_stale_lock_is_broken above broke.
+
+    The scheduler grants MAX_ATTEMPTS, so it must size the lock for all of them.
+    Size it for one and this live lock is broken, and a second run starts beside
+    the first.
     """
     path = isolated_home / "lock"
+    one_try = Lock(path, timeout_s=night_cfg.timeout_s, attempts=1).stale_after_s
+    retrying = Lock(
+        path, timeout_s=night_cfg.timeout_s, attempts=scheduler.MAX_ATTEMPTS
+    ).stale_after_s
+    assert one_try < retrying, "MAX_ATTEMPTS > 1, or this test asserts nothing"
+
+    # Comfortably past what a single attempt could justify, comfortably inside
+    # what the full retry budget can.
+    age = (one_try + retrying) / 2
     path.write_text(
-        json.dumps({"pid": 999999, "acquired_at": time.time() - 1800}),
+        json.dumps({"pid": 999999, "acquired_at": time.time() - age}),
         encoding="utf-8",
     )
     outcome = run(night_cfg, get_fake)
