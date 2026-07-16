@@ -63,6 +63,20 @@ jobs:
           python3 docs/make-demo.py
           git diff --exit-code docs/demo.svg
 
+      - name: The README screenshots must match their generator
+        # Same rule for docs/img/*.svg, rendered from the captures in
+        # docs/shots/. Touching either without re-rendering leaves the README
+        # showing a terminal the CLI no longer produces.
+        #
+        # Safe to pin to one Python: make-shots.py lays out by character cell
+        # via unicodedata, and every character the captures use has held the
+        # same width from Unicode 13 through 16 — the SVGs render byte-identical
+        # on 3.10, 3.12, and 3.14.
+        run: |
+          python3 docs/make-shots.py
+          git diff --exit-code docs/img
+          test -z "$(git status --porcelain docs/img)"
+
   site:
     runs-on: ubuntu-latest
     defaults:
