@@ -56,6 +56,21 @@ jobs:
         run: |
           ! python -m zipfile -l dist/*.whl | grep -q 'site/'
 
+      - name: The version must not drift
+        # pyproject's version is what PyPI publishes; __init__'s is what
+        # `nightshift --version` prints. They are two hand-kept literals, so a
+        # bump can touch one and miss the other — and the release workflow
+        # compares the tag against pyproject alone. Drift would publish a
+        # package whose own --version contradicts the tag it shipped under,
+        # to a place PyPI does not allow taking it back from.
+        run: |
+          pyproject="$(python -c 'import tomllib,pathlib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
+          package="$(python -c 'import nightshift; print(nightshift.__version__)')"
+          test "$pyproject" = "$package" || {
+            echo "pyproject says $pyproject, the package reports $package"
+            exit 1
+          }
+
       - name: The README demo must match its generator
         # docs/demo.svg is generated and committed. Editing make-demo.py without
         # re-running it would leave the README showing stale CLI output.
