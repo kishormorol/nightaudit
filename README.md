@@ -7,10 +7,10 @@
 Put your idle Claude Code subscription to work — read-only reviews of your
 projects while you're busy, one digest every morning.
 
-![A real code_review of this repo: two HIGH findings, then the morning digest](docs/demo.svg)
+![A real code_review of this repo: two HIGH findings, then the morning digest](https://raw.githubusercontent.com/kishormorol/nightshift/main/docs/demo.svg)
 
-[![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
+[![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/kishormorol/nightshift/blob/main/LICENSE)
+[![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/kishormorol/nightshift/blob/main/pyproject.toml)
 
 </div>
 
@@ -56,7 +56,7 @@ Run `nightshift init` once. It finds your AI CLIs, asks which projects to
 review and when, writes a config file, and offers to install the cron lines
 that drive everything:
 
-![nightshift init walks you through detection, projects, schedule, and cron](docs/img/init.svg)
+![nightshift init walks you through detection, projects, schedule, and cron](https://raw.githubusercontent.com/kishormorol/nightshift/main/docs/img/init.svg)
 
 The project path is the only thing it needs from you. Everything else has a
 working default you can accept with Enter:
@@ -85,7 +85,7 @@ nightshift run --now
 terminal, nightshift streams it live — you see the same reads and reasoning you
 would if you'd run `claude` yourself:
 
-![A live nightshift run: reads, reasoning, then seven findings ranked by severity](docs/img/watch.svg)
+![A live nightshift run: reads, reasoning, then seven findings ranked by severity](https://raw.githubusercontent.com/kishormorol/nightshift/main/docs/img/watch.svg)
 
 That is a real run of nightshift against its own repository, and those are real
 bugs. Two of them became commits the same evening: a run that could hang forever
@@ -131,7 +131,7 @@ so every project gets its turn and a noisy one can't starve the rest.
 
 To check on it any time, ask:
 
-![nightshift status: budget bars, next window, what's up next, recent runs](docs/img/status.svg)
+![nightshift status: budget bars, next window, what's up next, recent runs](https://raw.githubusercontent.com/kishormorol/nightshift/main/docs/img/status.svg)
 
 And to watch a run that cron started — including one already in progress —
 `nightshift watch` follows along live and replays the last finished run first.
@@ -166,7 +166,7 @@ Wed Jul 15, 2026 · generated 17:57 local · 1 project · 1 run
 ```
 
 Highest severity first, grouped by project, read in twenty seconds.
-**[Here is that digest in full](docs/sample-digest.md)** — a real one, not a
+**[Here is that digest in full](https://github.com/kishormorol/nightshift/blob/main/docs/sample-digest.md)** — a real one, not a
 mock-up.
 
 Skipped and failed runs stay in the log. A run that didn't happen is
@@ -385,7 +385,7 @@ covered against a `FakeAdapter`, and the Claude Code adapter is tested with a
 mocked `subprocess`. No test ever shells out to a real AI CLI.
 
 The images on this page are generated from real captured output — see
-[docs/RECORDING.md](docs/RECORDING.md) if you change what the CLI prints.
+[docs/RECORDING.md](https://github.com/kishormorol/nightshift/blob/main/docs/RECORDING.md) if you change what the CLI prints.
 
 ## License
 

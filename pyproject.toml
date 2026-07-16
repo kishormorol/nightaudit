@@ -13,7 +13,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Md. Kishor Morol" }]
-keywords = ["ai", "code-review", "claude-code", "automation", "cli"]
+keywords = ["ai", "code-review", "claude-code", "codex", "automation", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -22,6 +22,9 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
   "Topic :: Software Development :: Quality Assurance",
 ]
 dependencies = [
@@ -38,9 +41,29 @@ nightshift = "nightshift.cli:main"
 [project.urls]
 Homepage = "https://github.com/kishormorol/nightshift"
 Source = "https://github.com/kishormorol/nightshift"
+Issues = "https://github.com/kishormorol/nightshift/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["nightshift"]
+
+# Without this the sdist is 139 MB of `site/node_modules`. Hatchling reads the
+# root .gitignore only, and node_modules is ignored by the nested site/.gitignore
+# — so the landing page's entire toolchain, TypeScript compiler included, ships
+# to anyone who runs `pip install --no-binary`. The wheel was always clean, which
+# is why CI's "must not carry the landing page" check never caught it: it only
+# ever looked at the wheel. An allowlist rather than a denylist, so the next
+# directory someone adds at the root has to be named to get in.
+[tool.hatch.build.targets.sdist]
+include = [
+  "/nightshift",
+  "/tests",
+  "/docs",
+  "/README.md",
+  "/LICENSE",
+  "/SPEC.md",
+  "/TODO.md",
+  "/pyproject.toml",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

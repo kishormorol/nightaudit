@@ -56,6 +56,24 @@ jobs:
         run: |
           ! python -m zipfile -l dist/*.whl | grep -q 'site/'
 
+      - name: The sdist must not carry the landing page
+        # The same rule for the sdist, which is a separate list in pyproject and
+        # drifts separately. This check exists because the wheel one above did
+        # not catch a 139 MB sdist: hatchling reads the root .gitignore only, so
+        # site/node_modules — ignored by the nested site/.gitignore — was swept
+        # in. This runner has no node_modules, but site/'s committed sources are
+        # enough to trip the guard, which is all it needs to do.
+        run: |
+          ! tar -tzf dist/*.tar.gz | grep -q 'site/'
+
+      - name: The sdist must carry what it takes to build and test
+        # An allowlist can't silently lose a directory the way a denylist lets
+        # one in, but it can silently drop one. Anyone running `pip install
+        # --no-binary` builds from these files.
+        run: |
+          tar -tzf dist/*.tar.gz | grep -q 'nightshift/prompts/code_review.md'
+          tar -tzf dist/*.tar.gz | grep -q 'tests/'
+
       - name: The README demo must match its generator
         # docs/demo.svg is generated and committed. Editing make-demo.py without
         # re-running it would leave the README showing stale CLI output.
