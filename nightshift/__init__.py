@@ -3,6 +3,6 @@
 Read-only reviews of your projects while you're busy, one digest every morning.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 APP_NAME = "nightshift"
