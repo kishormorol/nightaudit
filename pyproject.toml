@@ -13,12 +13,15 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Md. Kishor Morol" }]
-keywords = ["ai", "code-review", "claude-code", "automation", "cli"]
+keywords = ["ai", "code-review", "claude-code", "codex", "automation", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
+  # cron and the CLIs' sandboxes; Windows only via WSL, which is Linux.
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -39,6 +42,7 @@ nightshift = "nightshift.cli:main"
 [project.urls]
 Homepage = "https://github.com/kishormorol/nightshift"
 Source = "https://github.com/kishormorol/nightshift"
+Issues = "https://github.com/kishormorol/nightshift/issues"
 
 [tool.hatch.build.targets.sdist]
 # Allowlist, not excludes: the marketing site's node_modules is only ignored by a
@@ -46,9 +50,11 @@ Source = "https://github.com/kishormorol/nightshift"
 include = [
   "/nightshift",
   "/tests",
+  "/docs",
   "/README.md",
   "/LICENSE",
   "/SPEC.md",
+  "/TODO.md",
 ]
 
 [tool.hatch.build.targets.wheel]
