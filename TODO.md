@@ -68,16 +68,28 @@ it also says to repoint `README.md` and delete the generator when you do.
 
 Blocked on (1): no point recording output whose format is about to change.
 
-## 4. Codex and Copilot adapters — help wanted
+## 4. Copilot adapter — help wanted, blocked upstream
 
-Both are documented stubs that raise `NotImplementedError`
-(`nightshift/adapters/codex.py`, `copilot.py`). Each docstring lists what an
-implementation must do. The hard requirement: **read-only has to be enforced by
-the CLI's own permission system**, not by asking the model nicely. An adapter
-that cannot do that should not be merged — "0 files touched" is the product.
+**Codex shipped** (`nightshift/adapters/codex.py`), enforcing read-only with the
+CLI's own OS sandbox. Its chip on the landing page is now `ready`.
 
-The landing page draws both as `SOON`. When one ships, flip `ready` in
+Copilot remains a documented stub raising `NotImplementedError`. The blocker is
+not effort — it is that Copilot CLI's denials bind one tool at a time, so a
+denied `read(x)` does not stop `shell(cat x)`, and there is no documented
+behaviour for an unallowed tool in programmatic mode. `copilot.py`'s docstring
+records exactly what was checked and when, so nobody has to rediscover it.
+
+The hard requirement stands: **read-only has to be enforced by the CLI's own
+permission system**, not by asking the model nicely. An adapter that cannot do
+that should not be merged — "0 files touched" is the product.
+
+If Copilot ships a real allowlist, flip `ready` in
 `site/components/pipeline.tsx` and update the caption.
+
+**Verify the Codex adapter against the real CLI.** It was written and tested
+against the published `codex exec` reference with a mocked `subprocess` — no
+`codex` binary was on the machine. The flags and the NDJSON event names are
+documented, not observed. Worth one real run before trusting the digest.
 
 ## 5. The site has nowhere to go
 

@@ -224,7 +224,8 @@ def init(force: bool) -> None:
 
     if not enabled:
         raise click.ClickException(
-            "No usable AI CLI found. Install Claude Code and re-run `nightshift init`."
+            "No usable AI CLI found. Install Claude Code or Codex and re-run "
+            "`nightshift init`."
         )
 
     click.echo("Which projects should nightshift review?")

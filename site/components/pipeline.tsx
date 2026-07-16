@@ -4,15 +4,15 @@ import { GITHUB_URL } from "@/lib/run-script";
 /**
  * How a run flows: cron → scheduler → gate → adapter → findings → digest.
  *
- * The identity board drew Claude Code, Codex and Copilot as three equal
- * adapter chips. Only Claude Code is implemented — Codex and Copilot ship as
- * documented stubs that raise NotImplementedError (see
- * nightshift/adapters/codex.py). Drawing them as equals would promise software
- * that does not exist, so they are marked as what they are.
+ * The identity board drew Claude Code, Codex and Copilot as three equal adapter
+ * chips. They are not equals, and this list says so: a chip is only `ready` once
+ * its adapter actually runs, per SPEC.md ("The page may only claim what the tool
+ * does"). Codex shipped and is drawn as real; Copilot remains a documented stub
+ * (nightshift/adapters/copilot.py) and stays marked as what it is.
  */
 const ADAPTERS = [
   { name: "Claude Code", ready: true },
-  { name: "Codex", ready: false },
+  { name: "Codex", ready: true },
   { name: "Copilot", ready: false },
 ];
 

@@ -31,12 +31,15 @@ That's the whole tool. The rest of this page is how to use it.
 ## Before you start
 
 - **Python 3.10+**
-- **[Claude Code](https://claude.com/claude-code)**, installed and already
-  logged in. Run `claude --version` — if that works, nightshift will find it.
+- **At least one AI CLI**, installed and already logged in — either
+  [Claude Code](https://claude.com/claude-code) or
+  [Codex](https://developers.openai.com/codex). Run `claude --version` or
+  `codex --version`; if that works, nightshift will find it. Have both and it
+  will use both, each with its own budget.
 - **cron** — standard on macOS and Linux. Windows works via WSL.
 
-You do not need an API key. nightshift drives the same `claude` CLI you use by
-hand, on the subscription you already have.
+You do not need an API key. nightshift drives the same CLIs you use by hand, on
+the subscriptions you already have.
 
 ## Install it
 
@@ -311,8 +314,9 @@ You've been using Claude Code, so nightshift is staying out of your way. Use
 **`nothing to do — claude_code: daily budget spent (6/6 today)`**
 Out of quota for today. Raise `max_runs_per_day` if you want more.
 
-**``No usable AI CLI found. Install Claude Code and re-run `nightshift init`.``**
-`claude` isn't on your `PATH`. Check `claude --version` in the same shell.
+**``No usable AI CLI found. Install Claude Code or Codex and re-run `nightshift init`.``**
+Neither CLI is on your `PATH`. Check `claude --version` / `codex --version` in
+the same shell.
 
 **Cron never runs it.** Cron uses a minimal `PATH`, which is why `init` writes
 the absolute path to the binary into your crontab. Check
@@ -343,16 +347,31 @@ everything between:
 
 Your digests in `~/nightshift-reports` are yours — delete them or don't.
 
-## Codex & Copilot adapters: help wanted
+## Providers
 
-The scheduler, ledger, queue, and digest are all provider-agnostic. Codex and
-Copilot ship as documented stubs — `nightshift/adapters/codex.py` and
-`copilot.py` — each listing exactly what an implementation needs to do, with
-`claude_code.py` as the reference.
+The scheduler, ledger, queue, and digest are all provider-agnostic. Enable
+whichever CLIs you have; each gets its own budget.
 
-One hard requirement: **the read-only guarantee must be enforced by the CLI's
-own permission system**, not by asking the model nicely. An adapter that can't
-do that won't be merged, because "0 files touched" is the whole product.
+| provider | status | how read-only is enforced |
+| --- | --- | --- |
+| `claude_code` | working | CLI permission flags — an allowlist of read-class tools, plus a denylist of every mutating one |
+| `codex` | working | Codex's own OS sandbox — Seatbelt on macOS, Landlock + seccomp on Linux |
+| `copilot` | stub | — see below |
+
+One hard requirement, and it's the whole reason that last column exists: **the
+read-only guarantee must be enforced by the CLI's own permission system**, not
+by asking the model nicely. An adapter that can't do that won't be merged,
+because "0 files touched" is the whole product.
+
+**Copilot: help wanted, but blocked upstream.** It ships as a documented stub
+(`nightshift/adapters/copilot.py`). The obstacle isn't effort — it's that
+Copilot CLI has no enforcement primitive that clears the bar. Its file-level
+denials don't apply across tools, so `shell(cat x)` walks around a denied
+`read(x)`, and [an open issue](https://github.com/github/copilot-cli/issues/2722)
+reports `--deny-tool="read(...)"` blocking *all* reads regardless of pattern.
+Denials one tool honors and another ignores aren't a permission system. If that
+changes upstream, the adapter is an afternoon's work — `codex.py` and
+`claude_code.py` are both reference shapes.
 
 ## Development
 
