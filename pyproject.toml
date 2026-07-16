@@ -39,6 +39,17 @@ nightshift = "nightshift.cli:main"
 Homepage = "https://github.com/kishormorol/nightshift"
 Source = "https://github.com/kishormorol/nightshift"
 
+[tool.hatch.build.targets.sdist]
+# Allowlist, not excludes: the marketing site's node_modules is only ignored by a
+# nested site/.gitignore, which hatchling's default selection does not honor.
+include = [
+  "/nightshift",
+  "/tests",
+  "/README.md",
+  "/LICENSE",
+  "/SPEC.md",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["nightshift"]
 
