@@ -184,6 +184,46 @@ def test_unknown_provider_names_the_known_ones():
         parse({"providers": {"claude_kode": {"enabled": True}}, "projects": []})
 
 
+def _with_binary(value):
+    return {
+        "providers": {"codex": {"enabled": True, "binary": value}},
+        "projects": [{"name": "p", "path": "/tmp/p", "tasks": ["code_review"]}],
+    }
+
+
+def test_binary_defaults_to_none_so_the_adapter_keeps_its_own_name():
+    cfg = parse(
+        {
+            "providers": {"claude_code": {"enabled": True}},
+            "projects": [{"name": "p", "path": "/tmp/p", "tasks": ["code_review"]}],
+        }
+    )
+    assert cfg.provider("claude_code").binary is None
+
+
+def test_binary_takes_a_path():
+    path = "/Applications/ChatGPT.app/Contents/Resources/codex"
+    assert parse(_with_binary(path)).provider("codex").binary == path
+
+
+def test_binary_is_stripped():
+    assert parse(_with_binary("  codex  ")).provider("codex").binary == "codex"
+
+
+@pytest.mark.parametrize("value", ["", "   ", 42, True, ["codex"]])
+def test_binary_rejects_anything_that_is_not_a_command(value):
+    with pytest.raises(ConfigError, match="providers.codex.binary"):
+        parse(_with_binary(value))
+
+
+def test_a_missing_binary_path_still_parses():
+    # Config load must not depend on what happens to be installed: the adapter
+    # reports an absent CLI as unavailable, which is a skip with a reason. A
+    # ConfigError here would instead stop every other project from running.
+    cfg = parse(_with_binary("/nowhere/codex"))
+    assert cfg.provider("codex").binary == "/nowhere/codex"
+
+
 def test_unknown_top_level_key_is_rejected():
     with pytest.raises(ConfigError, match="unknown top-level key"):
         parse(

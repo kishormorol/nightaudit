@@ -30,6 +30,29 @@ def run(cfg, get_fake, **kw):
     return scheduler.run_once(cfg, **kw)
 
 
+def test_the_configured_binary_reaches_the_adapter(tmp_path, project_dir, get_fake, fake_adapter):
+    # The whole point of `binary`: a CLI that PATH cannot see. If the scheduler
+    # drops it, the adapter looks up its default name, finds nothing, and the
+    # provider is reported missing — with the config looking perfectly correct.
+    cfg = build_config(
+        tmp_path,
+        project_dir,
+        providers={
+            "codex": {
+                "enabled": True,
+                "binary": "/Applications/ChatGPT.app/Contents/Resources/codex",
+            }
+        },
+    )
+    run(cfg, get_fake, now=AT_NIGHT)
+    assert fake_adapter.binary == "/Applications/ChatGPT.app/Contents/Resources/codex"
+
+
+def test_no_configured_binary_leaves_the_adapter_default_alone(night_cfg, get_fake, fake_adapter):
+    run(night_cfg, get_fake, now=AT_NIGHT)
+    assert fake_adapter.binary is None
+
+
 # ---- gate 1: window ---------------------------------------------------
 
 
@@ -346,7 +369,7 @@ def test_provider_flag_restricts_to_one(tmp_path, project_dir, fake_adapter):
     )
     asked: list[str] = []
 
-    def get(name):
+    def get(name, binary=None):
         asked.append(name)
         fake_adapter.name = name
         return fake_adapter
@@ -384,7 +407,7 @@ def test_falls_through_to_the_second_provider(tmp_path, project_dir):
         now=AT_NIGHT,
         ledger=Ledger(tmp_path / "l.json"),
         queue=Queue(tmp_path / "q.json"),
-        get_adapter=lambda n: {"claude_code": broken, "codex": working}[n],
+        get_adapter=lambda n, binary=None: {"claude_code": broken, "codex": working}[n],
     )
     assert outcome.ran is True
     assert len(working.calls) == 1

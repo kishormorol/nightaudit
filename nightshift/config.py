@@ -58,6 +58,10 @@ class Provider:
     name: str
     enabled: bool = False
     budget: Budget = field(default_factory=Budget)
+    #: Where the CLI lives, when it isn't simply on PATH under its usual name.
+    #: ``None`` means "look up the adapter's default name on PATH". Set this for
+    #: an install that PATH can't see — Codex bundled inside ChatGPT.app, say.
+    binary: str | None = None
 
 
 @dataclass(frozen=True)
@@ -205,11 +209,11 @@ def _parse_providers(raw: Any) -> dict[str, Provider]:
     providers: dict[str, Provider] = {}
     for name in KNOWN_PROVIDERS:
         entry = _require_mapping(data.get(name), f"providers.{name}")
-        unknown_fields = set(entry) - {"enabled", "budget"}
+        unknown_fields = set(entry) - {"enabled", "budget", "binary"}
         if unknown_fields:
             raise ConfigError(
                 f"providers.{name}: unknown field(s) {sorted(unknown_fields)} — "
-                f"expected enabled, budget"
+                f"expected enabled, budget, binary"
             )
         enabled = entry.get("enabled", False)
         if not isinstance(enabled, bool):
@@ -220,8 +224,27 @@ def _parse_providers(raw: Any) -> dict[str, Provider]:
             name=name,
             enabled=enabled,
             budget=_parse_budget(entry.get("budget"), f"providers.{name}.budget"),
+            binary=_parse_binary(entry.get("binary"), f"providers.{name}.binary"),
         )
     return providers
+
+
+def _parse_binary(value: Any, where: str) -> str | None:
+    """A command name or a path to one. Existence is the adapter's problem.
+
+    Deliberately not checked for existence here: config parsing runs on a
+    developer's laptop and in CI, and a path that is missing on one is routinely
+    present on the other. An adapter that can't find its binary already reports
+    that as unavailable, with a reason — which is a skip, not a crash. Rejecting
+    it here would turn one absent CLI into a config file that won't load at all.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise ConfigError(
+            f"{where}: expected a command name or a path to one, got {value!r}"
+        )
+    return value.strip()
 
 
 def _parse_projects(raw: Any) -> tuple[Project, ...]:

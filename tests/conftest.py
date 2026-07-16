@@ -69,6 +69,9 @@ class FakeAdapter:
     """
 
     name: str = "claude_code"
+    #: Whatever binary override the registry was asked for, recorded so a test
+    #: can prove the config value actually reached the adapter.
+    binary: str | None = None
     results: list = field(default_factory=list)
     is_available: bool = True
     unavailable_reason: str = "not installed"
@@ -131,10 +134,16 @@ def fake_adapter():
 
 @pytest.fixture
 def get_fake(fake_adapter):
-    """A drop-in for ``adapters.get`` that always yields the fake."""
+    """A drop-in for ``adapters.get`` that always yields the fake.
 
-    def _get(name: str):
+    It takes ``binary`` because the real ``get`` does. A double whose signature
+    has drifted from the thing it doubles is how a seam stops being tested
+    without any test going red.
+    """
+
+    def _get(name: str, binary: str | None = None):
         fake_adapter.name = name
+        fake_adapter.binary = binary
         return fake_adapter
 
     return _get

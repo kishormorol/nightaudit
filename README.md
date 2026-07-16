@@ -245,6 +245,12 @@ providers:
   claude_code:
     enabled: true
     budget: { max_runs_per_day: 6, max_runs_per_week: 30 }
+  codex:
+    enabled: true
+    budget: { max_runs_per_day: 6, max_runs_per_week: 30 }
+    # Optional. Only needed when the CLI isn't on PATH under its own name —
+    # e.g. the Codex bundled inside ChatGPT.app:
+    binary: /Applications/ChatGPT.app/Contents/Resources/codex
 
 projects:
   - name: gradagent
