@@ -70,6 +70,12 @@ jobs:
 
   publish:
     needs: build
+    # Only a tag publishes. workflow_dispatch still builds and runs every guard
+    # above, which is the point — you can exercise this workflow on a branch
+    # without putting anything on PyPI. Without this, a manual run would skip
+    # the tag/version check (it has nothing to check) and publish whatever
+    # version pyproject happened to carry, which PyPI would never let us undo.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
