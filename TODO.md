@@ -3,64 +3,54 @@
 Open work, most consequential first. Anything already done lives in the git
 history, not here.
 
-## 1. Decide the `nightaudit run` output format — blocks landing-page honesty
+## 1. Nothing enforces that sample output is real
 
-The identity board's hero terminal shows a ticking log:
+SPEC.md ("Landing page") says the page may only show what the CLI prints. That
+rule has now been broken twice by the same invented format — the identity
+board's ticking `[09:14:02] → project · task`, which no command has ever
+printed.
 
-```
-[09:14:02] nightaudit · idle detected · running within budget
-[09:14:03] → gradagent · security_audit · claude_code
-[09:14:47] 🔴 HIGH  api/auth.py:142 — JWT tokens never expire; set exp claim
-```
+It was caught in the hero and fixed properly: `cli.py` grew `_render_log_event`,
+`watch` prints a framed log, and `site/lib/run-script.ts` replays a real capture
+with a comment mapping every glyph to the function that emits it. Then it turned
+up again in `opengraph-image.tsx`, months later, in the one asset that reaches
+people before anything else — under a header comment about not lying. Fixed too,
+now, against `docs/shots/watch.txt`.
 
-**The CLI has never printed that.** What `run` actually prints is:
+Twice is a pattern, and the pattern is that the rule is prose. Both fixes were
+found by a person reading carefully; neither was found by CI, which is happy to
+render a beautiful card full of fiction.
 
-```
-     ok  gradagent · security_audit (claude_code, 44s)
-         3 findings
-```
+What would actually hold:
 
-SPEC.md ("Landing page") requires sample output to match what the CLI actually
-prints, so the hero in `site/components/hero-terminal.tsx` is currently out of
-compliance with our own rule, and the comment at the top of
-`site/lib/run-script.ts` claiming "every line here corresponds to something the
-CLI genuinely prints" is true in substance but false in format.
+- **Generate the samples.** `docs/make-shots.py` already renders committed SVGs
+  from `docs/shots/*.txt` and CI fails if they drift. Nothing equivalent exists
+  for the site — `run-script.ts` and the og:image are hand-typed from captures.
+  A generator that emits the TS from the same captures would make drift
+  impossible rather than discouraged.
+- **Or test the claim.** Assert every finding ref and command string in the site
+  appears in a capture. Weaker, but cheap, and it would have caught both.
 
-Two honest ways out:
+The blocker is that the og:image cannot show a screenshot even in principle:
+JetBrains Mono has no `⏺`, `⎿`, `✻`, `✓` or `🔴`, so that card will always be an
+excerpt with drawn stand-ins. "Verbatim" is not the testable property. "Every
+string here appears in a real capture" is.
 
-- **Change the page** to show real output. Cheap. Loses the ticking log, which
-  is the better hero.
-- **Change the CLI** to print a timestamped log, then repoint the page at it.
-  More work, touches `cli.py` and its tests, but the board was arguably
-  designing the output we *want* — per-line timestamps and severity as it
-  happens are genuinely more useful than a summary, especially under `-v`.
+## 2. Retire the `nightshift` alias and the `~/.nightshift` fallback at 1.0
 
-Leaning toward changing the CLI. Needs a decision either way; leaving both as
-they are means shipping a page that misrepresents the tool.
+0.4.1 made upgrading from 0.3.0 a no-op: the old command still works, the old
+state directory is read where it is, and `init` replaces the old crontab block.
+See `state_dir()` in config.py, the alias in pyproject's `[project.scripts]`,
+and `_warn_if_invoked_by_the_old_name` in cli.py — all three say they are
+temporary.
 
-## 2. Publish 0.4.0 to `nightshift-cli`
+They cannot go quietly. Removing them re-breaks exactly the installs they were
+added to protect, which is a breaking change and so waits for 1.0. Before it
+lands, the alias's notice needs to have been in a release long enough that a
+cron-driven install has plausibly printed it into a log someone eventually read.
 
-Settled: the distribution stays `nightshift-cli` and everything else is
-`nightaudit`. PyPI cannot rename a project, and publishing under the new word
-would start an empty one and leave every existing `pipx install nightshift-cli`
-pinned to 0.3.0 with nothing to tell it the tool moved. Keeping the old
-distribution costs one odd install line; the alternative costs every user.
-
-The `-cli` suffix stays for the original reason: PyPI's `nightshift` is Ian
-Fucci's NMR spectroscopy plotting tool (v1.0.1, live):
-<https://pypi.org/project/nightshift/>. Project name and console script are
-independent, so `pipx install nightshift-cli` gives you `nightaudit run`.
-
-Nothing to claim — <https://pypi.org/project/nightshift-cli/> is ours and sits
-at 0.3.0. 0.4.0 is the next release and ships the rename:
-
-```bash
-python -m build
-python -m twine upload dist/*
-```
-
-The release notes should say the command is now `nightaudit`, since the version
-bump alone won't tell anyone.
+Tests are in `tests/test_upgrade_from_nightshift.py`; deleting them is part of
+the same change.
 
 ## 3. Record a real asciinema cast
 
@@ -69,7 +59,9 @@ is real CLI formatting, but the findings come from a stub provider. A real cast
 demonstrates the timings instead of asserting them. See `docs/RECORDING.md` —
 it also says to repoint `README.md` and delete the generator when you do.
 
-Blocked on (1): no point recording output whose format is about to change.
+No longer blocked. It waited on the output format being settled, and it is —
+`watch` prints the framed log `_render_log_event` emits, and `docs/shots/` holds
+real captures of it.
 
 ## 4. Copilot adapter — help wanted, blocked upstream
 
@@ -89,10 +81,16 @@ that should not be merged — "0 files touched" is the product.
 If Copilot ships a real allowlist, flip `ready` in
 `site/components/pipeline.tsx` and update the caption.
 
-**Verify the Codex adapter against the real CLI.** It was written and tested
-against the published `codex exec` reference with a mocked `subprocess` — no
-`codex` binary was on the machine. The flags and the NDJSON event names are
-documented, not observed. Worth one real run before trusting the digest.
+~~Verify the Codex adapter against the real CLI.~~ **Done, and it was right to
+worry.** The adapter had never run: `--ask-for-approval` is real on `codex` and
+rejected by `codex exec`, so every run died at argument parsing while all 38
+mocked tests stayed green. Fixed in 0.4.1. The NDJSON event names turned out
+exact, and the sandbox refuses a write at the kernel as claimed.
+
+The general lesson outlived the bug and is now enforced: `tests/
+test_flag_contract.py` and CI's `contract` job check every flag both adapters
+pass against the real CLI's `--help`. "Documented, not observed" is a defect
+class, not a one-off.
 
 ## 5. The site has nowhere to go
 
@@ -103,8 +101,8 @@ points at a domain that does not resolve. Either register it, point
 
 ## 6. Housekeeping
 
-- `feat/landing-page` is unmerged and ahead of `main`.
-- The repo is **private**, deliberately — see (2). Flip it with
-  `gh repo edit --visibility public` once the install instruction is true.
-- CI's first run will be its first real run. Every step was verified locally,
-  but "works on my machine" is exactly what CI exists to disprove.
+- The v0.4.0 release notes are marked superseded rather than rewritten: they
+  told people to hand-migrate, and 0.4.1 made that unnecessary. The struck-
+  through steps stay because they are what readers were actually given.
+- 0.4.0 is on PyPI and not yanked. It works for anyone new, and yanking it to
+  fix an upgrade 0.4.1 already fixes would call every working install a mistake.

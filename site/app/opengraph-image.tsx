@@ -6,11 +6,30 @@ import { join } from "node:path";
  * Direction 3b from the identity board: the 1280×640 card that does the work
  * when the repo lands on HN, Bluesky or r/ClaudeAI.
  *
- * Two deliberate departures from the board, both about not lying:
+ * Three deliberate departures from the board, all about not lying:
  *   - the board's subtitle promised "Claude Code, Codex & Copilot"; Copilot is
  *     still a stub, so the copy names only the two that run.
  *   - the board carried a "★ 2.4k" badge. Inventing social proof for a repo is
  *     a fabricated metric, so it is gone.
+ *   - the board's terminal ticked `[09:14] → project · task`. No command has
+ *     ever printed that. The lines below are `nightaudit watch`, and the text
+ *     is lifted from docs/shots/watch.txt — a real run against this repo, the
+ *     same capture the hero replays and the README shows.
+ *
+ * `watch` and not `run` because of the fonts, which is worth stating plainly:
+ * `run` streams `⏺`, `⎿` and `✻`, and JetBrains Mono has none of them, while it
+ * does have `┌` and `└`. So the one real format this card can render is the
+ * framed one, and the honest move is to label it with the command that prints
+ * it rather than to keep the punchier verb over invented output. The severity
+ * dots are drawn for the same reason — see `Line`.
+ *
+ * That leaves the card an excerpt, not a screenshot. Everything it drops is
+ * dropped from the end or stood in for, never invented: two of the seven
+ * findings and no `⏺` tool calls between them; each finding's ref without the
+ * `— text` that follows it; `┌` without the dim `claude_code · 15:23:27`; and
+ * `└ ok` where the capture reads `└ ✓ ok`, the tick being one more glyph the
+ * font lacks. A reader who runs `watch` sees more than this, never something
+ * different. That is the whole distinction the board's `[09:14]` log failed.
  *
  * Rendered with Satori, which supports a subset of CSS: no CSS variables, no
  * class names, and every element in a multi-child container needs an explicit
@@ -231,7 +250,10 @@ export default async function OpengraphImage() {
           style={{
             display: "flex",
             flexDirection: "column",
-            width: 440,
+            // Wide enough for a finding's real ref at a legible size. The paths
+            // the CLI prints are repo-relative and long; trimming them to fit a
+            // narrower card would invent a shorter output than the tool has.
+            width: 500,
             borderRadius: 16,
             border: "1px solid #263050",
             background: "#080c1a",
@@ -257,7 +279,7 @@ export default async function OpengraphImage() {
               ))}
             </div>
             <div style={{ fontSize: 15, color: "#5f6c80", fontFamily: "JetBrains Mono" }}>
-              nightaudit run
+              nightaudit watch
             </div>
           </div>
 
@@ -266,15 +288,20 @@ export default async function OpengraphImage() {
               display: "flex",
               flexDirection: "column",
               padding: 22,
-              fontSize: 16,
+              fontSize: 14,
               fontFamily: "JetBrains Mono",
             }}
           >
-            <Line stamp="$" stampColor={ACCENT} color="#5f6c80" text="nightaudit run" />
-            <Line stamp="[09:14]" color="#8593b8" text="→ gradagent · security_audit" />
-            <Line stamp="[09:14]" color="#ff8b84" text="HIGH auth.py:142" dot="#ff5b52" />
-            <Line stamp="[09:16]" color="#8593b8" text="→ payments-web · deps_audit" />
-            <Line stamp="[09:16]" color="#6fdd8b" text="digest queued · 06:00" dot="#6fdd8b" />
+            <Line stamp="$" stampColor={ACCENT} color="#5f6c80" text="nightaudit watch" />
+            <Line stamp="┌" stampColor="#5b7cc4" color="#c9d4ee" text="nightaudit · code_review" />
+            <Line
+              stamp=" "
+              color="#ff8b84"
+              text="HIGH nightaudit/adapters/claude_code.py · 267"
+              dot="#ff5b52"
+            />
+            <Line stamp=" " color="#ffc46b" text="MED  nightaudit/lock.py · 121" dot="#ffab3d" />
+            <Line stamp="└" stampColor="#5b7cc4" color="#8593b8" text="ok   2m18s · 7 findings" />
             <div
               style={{
                 display: "flex",
