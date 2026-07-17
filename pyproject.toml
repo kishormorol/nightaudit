@@ -19,7 +19,7 @@ license = { text = "MIT" }
 authors = [{ name = "Md. Kishor Morol" }]
 keywords = ["ai", "code-review", "claude-code", "codex", "automation", "cli"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Environment :: Console",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
@@ -51,7 +51,9 @@ nightshift = "nightaudit.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/kishormorol/nightaudit"
+Documentation = "https://nightshift-site-production.up.railway.app/docs"
 Source = "https://github.com/kishormorol/nightaudit"
+Changelog = "https://github.com/kishormorol/nightaudit/blob/main/CHANGELOG.md"
 Issues = "https://github.com/kishormorol/nightaudit/issues"
 
 [tool.hatch.build.targets.sdist]
@@ -62,6 +64,7 @@ include = [
   "/tests",
   "/docs",
   "/README.md",
+  "/CHANGELOG.md",
   "/LICENSE",
   "/SPEC.md",
   "/TODO.md",
