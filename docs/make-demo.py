@@ -8,11 +8,18 @@ repo, stays diffable in review, and renders on GitHub without a CDN. When
 someone captures a real asciinema cast (see RECORDING.md), this is what it
 replaces.
 
-**Every line below is output the CLI genuinely prints.** That is not a style
-preference, it is the rule in SPEC.md ("Landing page"): sample output must
-match what the CLI actually prints. If you change `cli.py`'s output, re-run
-this. The transcript here was copied from a real run against a stub provider —
-real nightaudit, real formatting, invented findings.
+**Every line below is output the CLI genuinely prints.** That is the rule in
+SPEC.md ("Landing page"): sample output must match what the CLI actually prints.
+
+That claim used to be here and used to be false. The transcript said
+``path · 267 — text``; `_echo_finding` prints ``path:line · text``, and had for
+long enough that the capture it was typed from had already been replaced. It
+survived because it is a constant in a .py file, and nothing compares a constant
+to anything — while being the first image on the README and on the PyPI page.
+
+So the lines now come from `docs/shots/`, and `tests/test_demo_is_real.py`
+fails if any of them stops appearing there. If you change what `cli.py` prints:
+recapture (see RECORDING.md), then re-run this.
 """
 
 from __future__ import annotations
@@ -42,19 +49,32 @@ TOP = 46
 
 #: (text, colour). `None` renders a blank spacer line.
 #:
-#: A real `code_review` of this repo, run on 2026-07-15. The MED shown here is
-#: the lock-release race fixed in ff1ae5c; the HIGH is a real limitation of the
-#: buffered path, still documented as such in `claude_code.py`. The transcript
-#: is trimmed to the lines that carry the story; every line is one the CLI
-#: printed.
+#: **Every output line here is copied from a capture in `docs/shots/`**, and
+#: `tests/test_demo_is_real.py` fails if one is not. That is not belt-and-braces;
+#: it is the whole reason this list can be trusted. It previously read
+#: ``path · 267 — text`` while `_echo_finding` printed ``path:line · text``,
+#: because a hand-typed constant in a .py file is compared to nothing — and this
+#: is the first image on the README and on the PyPI page.
+#:
+#: Provenance, line by line:
+#:   - the run block is `watch.txt` — a real code_review of this repo on
+#:     2026-07-17. `run --now` at a terminal streams through `_render_event`,
+#:     the same renderer `watch` uses, so those lines are what both print; only
+#:     the ┌/└ frame is watch's own, and it is not here.
+#:   - the summary pair is `cli.py`'s own f-string (`{status:>7}  {project} · …`)
+#:     filled with that run's real duration and count, which `watch.txt`'s
+#:     closing line states.
+#:   - the status block is `status.txt`, verbatim.
+#:   - the digest line is what `nightaudit digest` prints: the file it wrote and
+#:     how many runs it covers.
 TRANSCRIPT: list[tuple[str, str] | None] = [
     ("$ nightaudit run --now", ACCENT),
-    ("  ⏺ Read(file_path: nightaudit/adapters/claude_code.py)", FAINT),
-    ("  ⏺ Read(file_path: nightaudit/lock.py)", FAINT),
-    ("  🔴 HIGH nightaudit/adapters/claude_code.py · 267 — Replace the…", HIGH),
-    ("  🟠 MED  nightaudit/lock.py · 121 — Have `release()` re-read the…", MED),
-    ("     ok  nightaudit · code_review (claude_code, 2m18s)", FG),
-    ("         7 findings", DIM),
+    ("  ⏺ Glob(pattern: **/*)", FAINT),
+    ("  ✻ thinking", MOON),
+    ("  🟠 MED  nightaudit/checks.py:167 · Stop passing the caller's shared `now` into each `r…", MED),
+    ("  🟡 LOW  nightaudit/cron.py:37 · `shlex.quote` the interpreter path here; a venv under …", FAINT),
+    ("     ok  nightaudit · code_review (claude_code, 2m52s)", FG),
+    ("         4 findings", DIM),
     None,
     ("$ nightaudit status", ACCENT),
     ("  ✓ claude_code ▓░░░░░ 1/6 today · 1/30 week", FG),
@@ -62,7 +82,7 @@ TRANSCRIPT: list[tuple[str, str] | None] = [
     ("up next   nightaudit · security_audit", FAINT),
     None,
     ("$ nightaudit digest", ACCENT),
-    ("~/nightaudit-reports/DIGEST-2026-07-15.md  (1 run)", OK),
+    ("~/nightaudit-reports/DIGEST-2026-07-17.md  (1 run)", OK),
 ]
 
 STEP = 0.62  # seconds between lines
