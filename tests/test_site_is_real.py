@@ -203,7 +203,12 @@ def test_the_hero_transcript_matches_the_run(watch):
 
     assert cited, f"the transcript cites no findings; it reads: {text!r}"
 
-    missing = [f"{p} · {n}" for p, n in cited if f"{p} · {n}" not in printed]
+    # `path:line`, the ref `_echo_finding` prints today. This assertion is
+    # deliberately pinned to the current shape: when the CLI's format moves, the
+    # committed captures are stale and the fix is to recapture, not to teach the
+    # test both spellings. An earlier capture said `path · line`, and carrying
+    # that format forward is how the page drifted in the first place.
+    missing = [f"{p}:{n}" for p, n in cited if f"{p}:{n}" not in printed]
 
     assert not missing, (
         "the transcript describes findings the run never reported: "

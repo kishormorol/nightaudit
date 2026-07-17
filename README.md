@@ -107,12 +107,18 @@ nightaudit run --now
 terminal, nightaudit streams it live — you see the same reads and reasoning you
 would if you'd run `claude` yourself:
 
-![A live nightaudit run: reads, reasoning, then seven findings ranked by severity](docs/img/watch.svg)
+![A live nightaudit run: reads, reasoning, then four findings ranked by severity](docs/img/watch.svg)
 
-That is a real run of nightaudit against its own repository, and those are real
-bugs. Two of them became commits the same evening: a run that could hang forever
-holding the scheduler's lock (`claude_code.py:366`), and a lock that could be
-released by the wrong owner (`lock.py:121`).
+That is a real run of nightaudit against its own repository — every line of it,
+including the part where it spends its first minute confused by a `.venv` and a
+directory whose name no longer matches the package inside it.
+
+Nothing red, this time. An earlier capture of the same review found two HIGH
+bugs and both became commits that evening: a run that could hang forever holding
+the scheduler's lock (`claude_code.py:366`, 13c0d3f) and a lock that could be
+released by the wrong owner (`lock.py:121`, ff1ae5c). What is left is a shared
+timestamp and an unquoted path. That is the tool working — and it is also what a
+tool that only ever showed you its best night would have no way to tell you.
 
 Findings are ranked 🔴 HIGH, 🟠 MED, 🟡 LOW, and each one cites a `file:line`
 so you can jump straight to it.
