@@ -33,8 +33,70 @@ jobs:
 
       - name: Test
         # The suite spends zero quota: no AI CLI is installed on this runner,
-        # and conftest fails any test that tries to spawn a real process.
+        # and conftest fails any test that tries to spawn a real process. The
+        # flag-contract tests skip themselves here for want of a CLI; the
+        # `contract` job below is where they actually run.
         run: pytest -q
+
+  contract:
+    # Do the flags we pass still exist on the CLIs we pass them to?
+    #
+    # This is the only job that installs a real AI CLI, and it exists because
+    # nothing else can catch what it catches. The Codex adapter once shipped
+    # passing `--ask-for-approval`, which `codex exec` rejects outright — every
+    # run died at argument parsing, and all 38 of its mocked tests stayed green,
+    # because a mocked Popen accepts anything you hand it. Only the CLI knows.
+    #
+    # It spends no quota and needs no auth: `--help` and `--version` parse
+    # arguments and exit without reaching a model. There is no API key here and
+    # this job must never need one.
+    #
+    # It pins nothing on purpose. Every other install in this file is pinned or
+    # locked; this one tracks whatever the CLIs just shipped, because upstream
+    # drift is the failure it is here to find. The cost is honest: a breaking
+    # release upstream turns this red on a PR that did not touch it. That is the
+    # bug arriving early rather than in a user's cron log at 3am.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Install the AI CLIs
+        run: |
+          npm install -g @openai/codex @anthropic-ai/claude-code
+          codex --version
+          claude --version
+
+      - name: Test the flag contract
+        # The tests skip when a CLI is absent, so contributors without both are
+        # not blocked. That makes a skip here indistinguishable from a pass, and
+        # this job would guard nothing while reporting green — so fail on any
+        # skip. If the CLIs stopped installing, that is the thing to hear about.
+        #
+        # `shell: bash` is load-bearing, not decoration: it is the only way to
+        # get `-o pipefail`, and the default `bash -e` takes the exit code of
+        # `tee`. Without it a failing pytest reports success through the pipe,
+        # and this job would go green on the very drift it is here to catch.
+        shell: bash
+        run: |
+          pytest tests/test_flag_contract.py -q -rs | tee /tmp/contract.txt
+          ! grep -q 'skipped' /tmp/contract.txt || {
+            echo "::error::the contract tests skipped, so nothing was verified"
+            exit 1
+          }
 
   build:
     runs-on: ubuntu-latest

@@ -7,8 +7,8 @@ import { join } from "node:path";
  * when the repo lands on HN, Bluesky or r/ClaudeAI.
  *
  * Two deliberate departures from the board, both about not lying:
- *   - the board's subtitle promised "Claude Code, Codex & Copilot"; only the
- *     Claude Code adapter exists, so the copy says so.
+ *   - the board's subtitle promised "Claude Code, Codex & Copilot"; Copilot is
+ *     still a stub, so the copy names only the two that run.
  *   - the board carried a "★ 2.4k" badge. Inventing social proof for a repo is
  *     a fabricated metric, so it is gone.
  *
@@ -182,8 +182,8 @@ export default async function OpengraphImage() {
               maxWidth: 520,
             }}
           >
-            Put your idle Claude Code subscription to work — read-only reviews
-            while you&apos;re busy, one digest every morning.
+            Put your idle Claude Code or Codex subscription to work — read-only
+            reviews while you&apos;re busy, one digest every morning.
           </div>
 
           {/* Stacked, not side by side. Beside each other these two fit only
@@ -211,7 +211,7 @@ export default async function OpengraphImage() {
                 whiteSpace: "nowrap",
               }}
             >
-              pipx install nightaudit
+              pipx install nightshift-cli
             </div>
             <div
               style={{

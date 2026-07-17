@@ -6,8 +6,11 @@ than the tool allowlist the Claude Code adapter relies on: an allowlist works
 because the agent honours its own tool gating, whereas here the kernel refuses
 the write. A bug in the model cannot touch the disk.
 
-The flags below were read off the published `codex exec` reference rather than
-assumed, and two of them are load-bearing in ways worth stating:
+The flags below are checked against `codex exec --help`, not the prose reference
+— the reference documents `--ask-for-approval` alongside `--sandbox`, but that
+flag is interactive-only and `exec` rejects it, so this adapter asserts the
+approval policy with `-c approval_policy=` instead. Three are load-bearing in
+ways worth stating:
 
 - ``--sandbox read-only`` is passed explicitly even though a fresh install
   already defaults to it, because the reference is explicit that ``--sandbox``
@@ -279,8 +282,13 @@ class CodexAdapter:
             "exec",
             "--sandbox",
             SANDBOX,
-            "--ask-for-approval",
-            APPROVAL,
+            # `--ask-for-approval` is an interactive-only flag: `codex exec`
+            # rejects it outright ("unexpected argument") and every run dies at
+            # argument parsing. The policy is still assertable, just as config.
+            # `-c` is a command-line override, so `--ignore-user-config` does not
+            # take it back; `--strict-config` confirms the key is real.
+            "-c",
+            f"approval_policy={APPROVAL}",
             # nightaudit registers directories, not repositories; codex exec
             # refuses to run outside a git repo without this. The check exists
             # to protect uncommitted work from edits, which is not a risk we

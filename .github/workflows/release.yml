@@ -68,7 +68,13 @@ jobs:
         # from source here, where it is cheap to notice.
         run: |
           python -m venv /tmp/sdist-check
-          /tmp/sdist-check/bin/pip install --no-binary nightaudit dist/*.tar.gz
+          # --no-binary takes the *distribution* name (nightshift-cli), not the
+          # command (nightaudit). It was left naming the old distribution by the
+          # rename, which pip ignores in silence — an unknown name is not an
+          # error. Handing pip the tarball directly is what actually forces the
+          # source build, so this stayed correct by luck rather than by saying
+          # what it meant.
+          /tmp/sdist-check/bin/pip install --no-binary nightshift-cli dist/*.tar.gz
           /tmp/sdist-check/bin/nightaudit --version
 
       - run: twine check dist/*

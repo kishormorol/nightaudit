@@ -83,8 +83,8 @@ export function Pipeline() {
           id="providers"
           className="mx-auto mt-7 max-w-2xl scroll-mt-8 text-center font-mono text-xs leading-relaxed text-fg-fainter"
         >
-          Claude Code is the working adapter today. Codex and Copilot are
-          documented stubs —{" "}
+          Claude Code and Codex both work today; bring either. Copilot is a
+          documented stub —{" "}
           <a
             href={`${GITHUB_URL}/issues`}
             className="text-accent-soft underline-offset-4 hover:underline"

@@ -3,10 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-# Distribution and command are the same word. The old name needed a `-cli`
-# suffix because PyPI's `nightshift` belongs to Ian Fucci's NMR plotting tool;
-# `nightaudit` is unclaimed, so that split is gone.
-name = "nightaudit"
+# Everything else is `nightaudit` — the repo, the module, the command. The
+# distribution stays `nightshift-cli` because PyPI has no rename: publishing
+# under the new word would start an empty project and strand every existing
+# `pipx install nightshift-cli` on 0.3.0 with nothing to tell it the tool moved.
+# The `-cli` suffix is here because PyPI's `nightshift` belongs to Ian Fucci's
+# NMR plotting tool. Users type `nightshift-cli` once, at install; the name they
+# live with afterward is `nightaudit`.
+name = "nightshift-cli"
 version = "0.4.0"
 description = "An audit doesn't change the books — read-only reviews of your projects while you're busy, one digest every morning."
 readme = "README.md"

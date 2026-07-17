@@ -131,10 +131,10 @@ export const LINE_COLOR: Record<LineKind, string> = {
   end: "var(--color-ok)",
 };
 
-export const INSTALL_COMMAND = "pipx install nightaudit";
+export const INSTALL_COMMAND = "pipx install nightshift-cli";
 
 export const QUICKSTART = [
-  "pipx install nightaudit",
+  "pipx install nightshift-cli",
   "nightaudit init",
   "nightaudit run --now",
 ].join("\n");

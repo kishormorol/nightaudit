@@ -29,14 +29,16 @@ The board is a **mockup**, and a mockup can claim anything. A live page cannot.
 Three changes, all in the same direction: the page only says things the tool
 actually does.
 
-1. **"Idle Claude Code, Codex & Copilot" → Claude Code only.** Codex and
-   Copilot ship as documented stubs that raise `NotImplementedError`
-   (`nightaudit/adapters/codex.py`). The pipeline draws them dashed and marked
+1. **"Idle Claude Code, Codex & Copilot" → Claude Code and Codex.** Both of
+   those adapters run. Copilot is still a documented stub
+   (`nightaudit/adapters/copilot.py`), and is blocked upstream rather than
+   unwritten — that file explains why. The pipeline draws it dashed and marked
    `SOON`, and the caption says so outright.
 2. **"★ 2.4k" is gone.** It appeared four times on the board. Inventing a star
    count is fabricated social proof.
-3. **The digest's `codex 4/6` bar reads `disabled`.** It cannot have run four
-   reviews overnight when the adapter does not exist.
+3. **The digest's budget bars show what each provider actually ran.** Codex once
+   read `disabled` here, when its adapter was a stub. It ships now, so it draws
+   as a real bar. The rule is the same either way: the numbers track the tool.
 
 Two board elements were dropped as scaffolding rather than design: the fake
 browser chrome around the hero, and the dashed `◉ RECORDING SPEC` annotation —

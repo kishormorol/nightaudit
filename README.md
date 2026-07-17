@@ -4,12 +4,12 @@
 
 **An audit doesn't change the books.**
 
-Put your idle Claude Code subscription to work — read-only reviews of your
-projects while you're busy, one digest every morning.
+Put your idle Claude Code or Codex subscription to work — read-only reviews of
+your projects while you're busy, one digest every morning.
 
 ![A real code_review of this repo: two HIGH findings, then the morning digest](docs/demo.svg)
 
-[![PyPI](https://img.shields.io/pypi/v/nightaudit)](https://pypi.org/project/nightaudit/)
+[![PyPI](https://img.shields.io/pypi/v/nightshift-cli)](https://pypi.org/project/nightshift-cli/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 
@@ -19,9 +19,13 @@ projects while you're busy, one digest every morning.
 
 ## What this is
 
-You already pay for Claude Code. It sits idle most of the day, and definitely
-all night. nightaudit spends that idle time reviewing the projects you point it
-at, and leaves the results in one Markdown file you read with your coffee.
+You already pay for Claude Code or ChatGPT. That subscription sits idle most of
+the day, and definitely all night. nightaudit spends that idle time reviewing
+the projects you point it at, and leaves the results in one Markdown file you
+read with your coffee.
+
+Either CLI works — Claude Code or Codex, whichever you have. Have both and it
+uses both, each with its own budget.
 
 It never edits your code. It has no daemon and no server — cron calls it, it
 decides whether to run, and it goes back to sleep. Everything it knows lives in
@@ -45,11 +49,17 @@ the subscriptions you already have.
 ## Install it
 
 ```bash
-pipx install nightaudit
+pipx install nightshift-cli
 nightaudit --version
 ```
 
-(`uv tool install nightaudit` and `pip install nightaudit` work too;
+That is not a typo. The tool is `nightaudit` everywhere except the install
+line: it was published as `nightshift-cli` before the rename, and PyPI has no
+way to rename a project without stranding everyone already on the old one. So
+the package keeps its old name and the command gets the new one. You type
+`nightshift-cli` once, today, and never again.
+
+(`uv tool install nightshift-cli` and `pip install nightshift-cli` work too;
 pipx and uv just keep it out of your other environments. The command is
 `nightaudit` either way.)
 
@@ -413,7 +423,7 @@ nightaudit keeps no state anywhere else, so removing it is three lines:
 ```bash
 crontab -e                    # delete the block (see below)
 rm -rf ~/.nightaudit          # config, ledger, queue, event logs
-pipx uninstall nightaudit
+pipx uninstall nightshift-cli
 ```
 
 `init` fences its crontab lines between two markers — delete them and

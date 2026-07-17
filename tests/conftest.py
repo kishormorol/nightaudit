@@ -2,9 +2,12 @@
 
 Two invariants hold across the whole suite:
 
-1. **No test spends quota.** Nothing here shells out to a real AI CLI; the
-   scheduler is driven by :class:`FakeAdapter` and the Claude Code adapter is
-   tested against a mocked ``subprocess``.
+1. **No test spends quota.** No test sends a prompt to a real AI CLI; the
+   scheduler is driven by :class:`FakeAdapter` and the adapters are tested
+   against a mocked ``subprocess``. ``test_flag_contract.py`` does spawn the
+   real binaries, and does not breach this: ``--help`` and ``--version`` parse
+   arguments and exit without reaching a model. That file explains why asking
+   the CLI directly is the only way to catch what mocks cannot.
 2. **No test touches the real home directory.** ``NIGHTAUDIT_HOME`` is pointed
    at a tmp_path for every test, so a stray ``Ledger()`` can never read or
    write the developer's actual ledger.

@@ -38,26 +38,29 @@ Two honest ways out:
 Leaning toward changing the CLI. Needs a decision either way; leaving both as
 they are means shipping a page that misrepresents the tool.
 
-## 2. Claim `nightaudit` on PyPI before announcing
+## 2. Publish 0.4.0 to `nightshift-cli`
 
-The distribution is named `nightaudit` because PyPI's `nightaudit` is Ian
+Settled: the distribution stays `nightshift-cli` and everything else is
+`nightaudit`. PyPI cannot rename a project, and publishing under the new word
+would start an empty one and leave every existing `pipx install nightshift-cli`
+pinned to 0.3.0 with nothing to tell it the tool moved. Keeping the old
+distribution costs one odd install line; the alternative costs every user.
+
+The `-cli` suffix stays for the original reason: PyPI's `nightshift` is Ian
 Fucci's NMR spectroscopy plotting tool (v1.0.1, live):
-<https://pypi.org/project/nightaudit/>. The console script is still
-`nightaudit` — the project name and the installed command are independent, so
-`pipx install nightaudit` gives you `nightaudit run`.
+<https://pypi.org/project/nightshift/>. Project name and console script are
+independent, so `pipx install nightshift-cli` gives you `nightaudit run`.
 
-`nightaudit` was unclaimed when the rename landed, **but names are
-first-come and nothing reserves it.** Until it's registered, the README's
-quickstart is a promise about a package that doesn't exist yet.
+Nothing to claim — <https://pypi.org/project/nightshift-cli/> is ours and sits
+at 0.3.0. 0.4.0 is the next release and ships the rename:
 
 ```bash
 python -m build
-python -m twine upload dist/*      # claims the name
+python -m twine upload dist/*
 ```
 
-Until then, `pipx install nightaudit` fails with "no matching
-distribution", which is at least honest — it fails rather than installing the
-wrong software, which is what the old name did.
+The release notes should say the command is now `nightaudit`, since the version
+bump alone won't tell anyone.
 
 ## 3. Record a real asciinema cast
 

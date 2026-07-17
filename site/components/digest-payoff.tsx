@@ -3,13 +3,14 @@ import { SectionLabel } from "@/components/busy-split";
 /**
  * The payoff: what you actually wake up to.
  *
- * The board showed two filled budget bars, claude_code and codex. Only
- * claude_code runs today, so codex is drawn as what it is — disabled — rather
- * than as a provider that quietly did four runs overnight.
+ * Both bars are filled because both adapters run: this is the digest of someone
+ * who has both CLIs, each spending its own budget. It was once drawn with codex
+ * `disabled`, correctly, back when that adapter was a stub — the numbers here
+ * track what ships, in either direction.
  */
 const BUDGETS = [
   { name: "claude_code", filled: 3, total: 6, enabled: true },
-  { name: "codex", filled: 0, total: 6, enabled: false },
+  { name: "codex", filled: 2, total: 6, enabled: true },
 ];
 
 const FINDINGS = [

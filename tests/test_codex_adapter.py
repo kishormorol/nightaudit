@@ -117,8 +117,18 @@ def test_user_config_cannot_widen_the_sandbox(adapter, popen_spy, project_dir):
 def test_the_run_can_never_be_asked_to_escalate(adapter, popen_spy, project_dir):
     adapter.run("review this", project_dir, 600)
     cmd = popen_spy.calls[0]["cmd"]
-    assert cmd[cmd.index("--ask-for-approval") + 1] == "never"
+    assert cmd[cmd.index("-c") + 1] == "approval_policy=never"
     assert APPROVAL == "never"
+
+
+def test_approval_is_not_passed_as_an_interactive_flag(adapter, popen_spy, project_dir):
+    """`--ask-for-approval` belongs to `codex`, not `codex exec`.
+
+    Passing it made every real run die at argument parsing while the mocked
+    suite stayed green — the whole adapter was unusable and no test noticed.
+    """
+    adapter.run("review this", project_dir, 600)
+    assert "--ask-for-approval" not in popen_spy.calls[0]["cmd"]
 
 
 def test_no_writable_sandbox_is_ever_requested(adapter, popen_spy, project_dir):

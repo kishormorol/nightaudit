@@ -49,7 +49,7 @@ whole lines or recapture; do not trim by rewriting what the CLI said.
 ## The hero
 
 The animation above the fold is the whole pitch: see it → want it → install in
-one paste. It sits directly above the `pipx install nightaudit` line, so
+one paste. It sits directly above the `pipx install nightshift-cli` line, so
 whatever it shows is the first thing a visitor learns about the tool.
 
 `make-demo.py` animates a trimmed transcript line by line. It is generated
