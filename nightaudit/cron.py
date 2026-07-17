@@ -14,6 +14,16 @@ from pathlib import Path
 MARKER = "# nightaudit (managed — edit via `nightaudit init`)"
 END_MARKER = "# end nightaudit"
 
+#: What 0.3.0 and earlier wrote. Recognised so `init` replaces that block rather
+#: than adding a second one beside it: the old lines call a `nightshift` binary
+#: the upgrade removed, so leaving them in place means an hourly failure in a log
+#: nobody reads, under a marker claiming the block is managed.
+LEGACY_MARKER = "# nightshift (managed — edit via `nightshift init`)"
+LEGACY_END_MARKER = "# end nightshift"
+
+_MARKERS = (MARKER, LEGACY_MARKER)
+_END_MARKERS = (END_MARKER, LEGACY_END_MARKER)
+
 HOURLY_RUN = "0 * * * *"
 DAILY_DIGEST = "30 7 * * *"
 
@@ -54,15 +64,20 @@ def read_crontab() -> str:
 
 
 def strip_block(existing: str) -> str:
-    """Remove a previously installed nightaudit block."""
+    """Remove a previously installed block, under either name.
+
+    Either end marker closes either block. A crontab carrying an opening line we
+    recognise and no matching close is already malformed, and swallowing to the
+    end of the file would take the user's own entries with it.
+    """
     out: list[str] = []
     skipping = False
     for line in existing.splitlines():
-        if line.strip() == MARKER:
+        if line.strip() in _MARKERS:
             skipping = True
             continue
         if skipping:
-            if line.strip() == END_MARKER:
+            if line.strip() in _END_MARKERS:
                 skipping = False
             continue
         out.append(line)

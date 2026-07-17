@@ -63,6 +63,15 @@ the package keeps its old name and the command gets the new one. You type
 pipx and uv just keep it out of your other environments. The command is
 `nightaudit` either way.)
 
+**Upgrading from 0.3.0, when this was called nightshift?** `pipx upgrade
+nightshift-cli` and carry on. Your config, budget history and queue are read
+where they already are, in `~/.nightshift`, and the old `nightshift` command
+still works so the crontab you already have keeps running — it prints a notice
+and does the job. Neither is forever: run `nightaudit init` when convenient and
+it rewrites the old cron block in place. The alias goes away in 1.0. To move
+the state whenever you like, `mv ~/.nightshift ~/.nightaudit` — it is picked up
+on the next run.
+
 ## Set it up
 
 Run `nightaudit init` once. It finds your AI CLIs, asks which projects to
@@ -425,6 +434,10 @@ crontab -e                    # delete the block (see below)
 rm -rf ~/.nightaudit          # config, ledger, queue, event logs
 pipx uninstall nightshift-cli
 ```
+
+If you first installed before 0.4.0, your state may still be in `~/.nightshift`
+— nightaudit reads it there rather than making you move it. `nightaudit status`
+prints the directory it is actually using, which is the one to remove.
 
 `init` fences its crontab lines between two markers — delete them and
 everything between:
