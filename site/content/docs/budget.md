@@ -25,3 +25,13 @@ providers:
 - **At the cap it stops and says so**, once, as a `skipped` row in the digest.
 
 Start low. Six runs a day is already a lot of review.
+
+## Tokens are a measure, not the budget
+
+The digest reports how many tokens each project's reviews took, and the run and
+`watch` lines show a per-run count. That is there so you can *see* the cost — it
+is not what the caps count. Budgets are counted in **runs**, because a run is
+the unit you can predict before it happens; tokens you only learn afterward.
+Claude's figure includes cache reads, which are real tokens the model processed,
+so it reads larger than a plain input-plus-output count and larger than Codex's
+for comparable work. A run whose CLI reports no usage simply shows none.

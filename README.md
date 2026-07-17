@@ -47,9 +47,11 @@ That's the whole tool. Everything below is how to start; the
   ledger it keeps itself.
 - **Stays out of your way.** It only runs inside the hours you choose, and only
   once you've been away from the CLI long enough.
-- **Multi-project.** A round-robin queue, so a noisy repo can't starve the rest.
+- **Multi-project.** Add repos one path at a time, or point `--discover` at a
+  folder and it finds every git repo under it. A round-robin queue means a noisy
+  repo can't starve the rest.
 - **One digest a morning.** Every finding ranked by severity with a `file:line`,
-  in a single Markdown file.
+  in a single Markdown file — with how many tokens each project's reviews took.
 - **No daemon, no server.** Cron calls it, it decides whether to run, it exits.
   Everything it knows lives in two directories you can delete.
 
@@ -69,14 +71,16 @@ Full guide, including upgrading from 0.3.0: **[Installation](https://nightshift-
 ## Getting Started
 
 ```bash
-nightaudit init       # find your CLIs, pick projects and hours, write cron
-nightaudit run --now  # don't wait until tonight
-nightaudit status     # budget, next window, what's up next
+nightaudit init                 # find your CLIs, pick projects and hours, write cron
+nightaudit init --discover ~/code   # or scan a folder and pick from what it finds
+nightaudit run --now            # don't wait until tonight
+nightaudit status               # budget, next window, what's up next
 ```
 
-`init` asks for a project path and gives everything else a working default.
-Then cron takes over: it runs in the hours you chose, once you've been away
-long enough, until the budget says stop.
+`init` asks for a project path and gives everything else a working default —
+or type `scan <folder>` at the prompt (or pass `--discover`) to add every git
+repo under a folder from a checklist. Then cron takes over: it runs in the hours
+you chose, once you've been away long enough, until the budget says stop.
 
 Full guide: **[Quick Start](https://nightshift-site-production.up.railway.app/docs/quick-start)** · **[Scheduling](https://nightshift-site-production.up.railway.app/docs/scheduling)**
 
