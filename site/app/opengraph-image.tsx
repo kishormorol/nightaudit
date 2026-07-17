@@ -294,14 +294,13 @@ export default async function OpengraphImage() {
           >
             <Line stamp="$" stampColor={ACCENT} color="#5f6c80" text="nightaudit watch" />
             <Line stamp="┌" stampColor="#5b7cc4" color="#c9d4ee" text="nightaudit · code_review" />
-            <Line
-              stamp=" "
-              color="#ff8b84"
-              text="HIGH nightaudit/adapters/claude_code.py · 267"
-              dot="#ff5b52"
-            />
-            <Line stamp=" " color="#ffc46b" text="MED  nightaudit/lock.py · 121" dot="#ffab3d" />
-            <Line stamp="└" stampColor="#5b7cc4" color="#8593b8" text="ok   2m18s · 7 findings" />
+            {/* No red row, because the run found nothing red. An earlier card
+                showed a HIGH and the capture had one; this run's worst is MED.
+                Showing the two severities it actually reported beats keeping a
+                slot open for the colour. */}
+            <Line stamp=" " color="#ffc46b" text="MED  nightaudit/checks.py:167" dot="#ffab3d" />
+            <Line stamp=" " color="#9fb4ff" text="LOW  nightaudit/cron.py:37" dot={ACCENT} />
+            <Line stamp="└" stampColor="#5b7cc4" color="#8593b8" text="ok   2m52s · 4 findings" />
             <div
               style={{
                 display: "flex",

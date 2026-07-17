@@ -114,14 +114,16 @@ export function HeroTerminal() {
           connection. Prose rather than a line dump: a screen reader reading 14
           rows of glyphs and column padding conveys nothing. */}
       <p className="sr-only">
-        A recorded nightaudit watch session. At 15:23 it reviews the nightaudit
+        A recorded nightaudit watch session. At 00:09 it reviews the nightaudit
         repository itself with Claude Code, reading the project files and
-        reasoning aloud as it goes. It reports seven findings, most severe
-        first: a high-severity one in nightaudit/adapters/claude_code.py at line
-        267, about replacing a buffered subprocess call; a medium-severity one
-        in nightaudit/lock.py at line 121; and a low-severity one in
-        nightaudit/cron.py at line 27. The run finishes in 2 minutes 18 seconds
-        while nobody is watching, spending 1 of the 6 runs allowed per day.
+        reasoning aloud as it goes. It reports four findings, most severe first:
+        a medium-severity one in nightaudit/checks.py at line 167, about a
+        shared timestamp passed into each check; another medium-severity one in
+        nightaudit/scheduler.py at line 307; a low-severity one in
+        nightaudit/report.py at line 419; and a low-severity one in
+        nightaudit/cron.py at line 37, about quoting an interpreter path.
+        Nothing high-severity. The run finishes in 2 minutes 52 seconds while
+        nobody is watching, spending 1 of the 6 runs allowed per day.
       </p>
     </div>
   );

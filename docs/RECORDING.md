@@ -19,9 +19,26 @@ ANSI escapes and all. `make-shots.py` parses the escapes and renders each to a
 terminal window in `docs/img/<name>.svg`. To add one, drop in a `.txt` and add
 it to `SHOTS` with its title-bar caption.
 
-The current shots — `init`, `watch`, `status` — were captured on 2026-07-15
-from a real `code_review` of this repository. The findings in `watch.txt` are
-real bugs: `claude_code.py:366` became 13c0d3f and `lock.py:121` became ff1ae5c.
+`watch.txt` was recaptured on 2026-07-17 from a real `code_review` of this
+repository, and `hero.txt` is a cut of it — see below. `init` and `status` still
+date from 2026-07-15.
+
+Recapturing was not housekeeping. The 07-15 `watch.txt` showed findings as
+``path · line — text``; `_echo_finding` prints ``path:line · text`` and had for
+a while. The capture was stale, the hero was generated from it, and so the page
+was reproducing a format the CLI no longer had — the exact drift these images
+are supposed to make impossible. Nothing failed, because nothing compares a
+capture to the CLI. Only running the CLI does that.
+
+The 07-15 findings were real bugs and two became commits that evening —
+`claude_code.py:366` is 13c0d3f, `lock.py:121` is ff1ae5c. The 07-17 run finds
+no HIGH at all, which is why the og:image has no red row: it shows the
+severities the run reported rather than the ones the layout would prefer.
+
+`hero.txt` is a further cut, for the landing page, where a 27-line transcript
+animates for half a minute. Whole lines only, and
+`tests/test_site_is_real.py` enforces it: every line must appear in `watch.txt`,
+in order, and the elide count must be the truth.
 
 ### Capturing one
 
