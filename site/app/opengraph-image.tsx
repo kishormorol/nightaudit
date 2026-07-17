@@ -211,7 +211,7 @@ export default async function OpengraphImage() {
                 whiteSpace: "nowrap",
               }}
             >
-              pipx install nightaudit
+              pipx install nightshift-cli
             </div>
             <div
               style={{

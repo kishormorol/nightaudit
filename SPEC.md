@@ -268,7 +268,7 @@ non-negotiably:
 GIF/asciinema placeholder above the fold, then exactly:
 
 ```bash
-pipx install nightaudit
+pipx install nightshift-cli
 nightaudit init
 nightaudit run --now
 ```
