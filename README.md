@@ -33,6 +33,18 @@ two directories you can delete at any time.
 
 That's the whole tool. The rest of this page is how to use it.
 
+## The other nightshift
+
+[**marcus/nightshift**](https://github.com/marcus/nightshift) got here first — by
+five months, in Go — and it does the same thing for the same people, with one
+difference: it opens PRs. This opens nothing.
+
+If you want the diffs, go there. It is the older and more established of the two,
+and wanting your idle budget to *produce* something is a perfectly good thing to
+want. This is the other choice, and the name is the whole spec: an audit examines
+and reports and changes nothing. That is also why this isn't called nightshift —
+standing next to it wearing its name would lose the one difference that matters.
+
 ## Before you start
 
 - **Python 3.10+**
