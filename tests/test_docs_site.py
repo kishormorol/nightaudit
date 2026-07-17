@@ -137,10 +137,69 @@ def test_the_readme_links_reach_real_pages(docs):
     a dead link on the first page anyone reads."""
     slugs = {p.stem for p in docs}
     text = README.read_text(encoding="utf-8")
-    linked = set(re.findall(r"/docs/([a-z-]+)\b", text))
+    # Only the docs site's own URLs. A bare `/docs/(\w+)` also matches
+    # raw.githubusercontent.com/.../main/docs/demo.svg, which is a file in the
+    # repo and not a page — the first version of this test failed on it.
+    linked = set(
+        re.findall(
+            r"https://(?!raw\.githubusercontent\.com|github\.com)[^)\s]+/docs/([a-z-]+)(?![\w.-])",
+            text,
+        )
+    )
     dead = sorted(s for s in linked if s not in slugs)
 
     assert not dead, f"README links to docs pages that do not exist: {dead}"
+
+
+def test_the_readme_has_no_relative_links():
+    """PyPI renders this file with no repo to resolve against.
+
+    `](docs/demo.svg)` is an image on GitHub and a broken one on PyPI, where the
+    same markdown is the project description and there is nothing to be relative
+    to. `](LICENSE)` is a 404 there. Nobody sees it unless they look at the
+    package page, which is the one place a stranger decides whether to install.
+
+    Third time this shape of bug has landed: the docs site resolved the same
+    paths to /docs/docs/img/… and the og:image pointed at a host with no DNS.
+    Absolute renders correctly everywhere, so there is no reason to keep a
+    relative one.
+    """
+    text = README.read_text(encoding="utf-8")
+    targets = re.findall(r"\]\(([^)]+)\)", text)
+    relative = [t for t in targets if not t.startswith(("http://", "https://", "#"))]
+
+    assert not relative, (
+        "the README has relative targets, which break on PyPI:\n  "
+        + "\n  ".join(relative)
+    )
+
+
+def test_the_site_points_at_its_own_docs(docs):
+    """The nav's "Docs" link went to the GitHub README, and stayed there after
+    the docs moved to /docs. The site was the last thing pointing at the old
+    address, and the only visitor who would notice is one who clicked it.
+    """
+    nav = (ROOT / "site" / "components" / "nav.tsx").read_text(encoding="utf-8")
+    labelled_docs = re.findall(r'label:\s*"Docs",\s*href:\s*(?:`|")([^`"]+)', nav)
+
+    assert labelled_docs, "no Docs link in the site nav"
+    for href in labelled_docs:
+        assert href.startswith("/docs"), (
+            f'the nav sends "Docs" to {href!r}; the docs are at /docs'
+        )
+
+
+def test_the_install_command_is_checkable(docs):
+    """`pipx install nightshift-cli` for a tool called nightaudit reads as a
+    typo. Wherever the site says it, it has to be possible to go and look.
+    """
+    hero = (ROOT / "site" / "components" / "hero.tsx").read_text(encoding="utf-8")
+    install_doc = (DOCS_DIR / "installation.md").read_text(encoding="utf-8")
+
+    assert "PYPI_URL" in hero, "the hero shows the install command with no way to verify it"
+    assert "pypi.org/project/nightshift-cli" in install_doc, (
+        "the installation page never links the package it tells you to install"
+    )
 
 
 def test_the_readme_stayed_short(docs):

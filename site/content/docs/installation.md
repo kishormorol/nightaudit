@@ -30,6 +30,9 @@ way to rename a project without stranding everyone already on the old one. So
 the package keeps its old name and the command gets the new one. You type
 `nightshift-cli` once, today, and never again.
 
+It is the package you think it is:
+[pypi.org/project/nightshift-cli](https://pypi.org/project/nightshift-cli/).
+
 (`uv tool install nightshift-cli` and `pip install nightshift-cli` work too;
 pipx and uv just keep it out of your other environments. The command is
 `nightaudit` either way.)

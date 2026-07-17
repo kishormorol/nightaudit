@@ -109,3 +109,13 @@ export const QUICKSTART = [
 ].join("\n");
 
 export const GITHUB_URL = "https://github.com/kishormorol/nightaudit";
+
+/**
+ * The package the install command actually installs.
+ *
+ * Worth a link rather than just a command, and more so here than anywhere else:
+ * `pipx install nightshift-cli` for a tool called nightaudit reads as a typo, so
+ * the first thing a wary visitor wants is to check the thing is real. The page
+ * showed the command in three places and offered no way to look it up.
+ */
+export const PYPI_URL = "https://pypi.org/project/nightshift-cli/";

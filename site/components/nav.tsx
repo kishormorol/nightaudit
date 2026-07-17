@@ -4,7 +4,9 @@ import { GITHUB_URL } from "@/lib/run-script";
 const LINKS = [
   { label: "How it works", href: "#how" },
   { label: "Providers", href: "#providers" },
-  { label: "Docs", href: `${GITHUB_URL}#readme` },
+  // Was the GitHub README, which was where the docs lived until they moved to
+  // /docs. The site was the last thing still pointing at the old address.
+  { label: "Docs", href: "/docs" },
 ];
 
 export function Nav() {

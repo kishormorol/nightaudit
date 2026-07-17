@@ -1,6 +1,6 @@
 import { CopyButton } from "@/components/copy-button";
 import { HeroTerminal } from "@/components/hero-terminal";
-import { INSTALL_COMMAND, QUICKSTART } from "@/lib/run-script";
+import { INSTALL_COMMAND, PYPI_URL, QUICKSTART } from "@/lib/run-script";
 
 const STATS = [
   { value: "6", label: "runs / day", tone: "text-fg" },
@@ -24,6 +24,21 @@ export function Hero() {
           </code>
           <CopyButton text={QUICKSTART} />
         </div>
+
+        {/* The command names a package that does not match the tool, which reads
+            as a typo until you can see it is real. This is the sentence that
+            makes it checkable — the page had the command in three places and no
+            way to look it up. */}
+        <p className="mt-3 text-[12.5px] text-fg-fainter">
+          Not a typo — the tool is <code className="font-mono text-fg-faint">nightaudit</code>;
+          the package kept its old name so existing installs upgrade.{" "}
+          <a
+            href={PYPI_URL}
+            className="text-accent-soft underline-offset-4 hover:underline"
+          >
+            View on PyPI
+          </a>
+        </p>
 
         <dl className="mt-9 flex justify-center">
           {STATS.map((stat, i) => (
