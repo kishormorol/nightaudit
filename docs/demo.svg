@@ -9,17 +9,17 @@
 <text class="t" x="74" y="24" fill="#5f6c80" font-size="11">nightaudit — 0 files touched</text>
 <text class="t" x="742" y="24" fill="#ffd79a" font-size="11" text-anchor="end">☾</text>
 <text class="t l l0" x="18" y="56" fill="#8b9bff">$ nightaudit run --now</text>
-<text class="t l l1" x="18" y="78" fill="#6472a0">  ⏺ Read(file_path: nightaudit/adapters/claude_code.py)</text>
-<text class="t l l2" x="18" y="98" fill="#6472a0">  ⏺ Read(file_path: nightaudit/lock.py)</text>
-<text class="t l l3" x="18" y="120" fill="#f38ba8">  🔴 HIGH nightaudit/adapters/claude_code.py · 267 — Replace the…</text>
-<text class="t l l4" x="18" y="140" fill="#f9e2af">  🟠 MED  nightaudit/lock.py · 121 — Have `release()` re-read the…</text>
-<text class="t l l5" x="18" y="162" fill="#cdd6f4">     ok  nightaudit · code_review (claude_code, 2m18s)</text>
-<text class="t l l6" x="18" y="182" fill="#5f6c80">         7 findings</text>
+<text class="t l l1" x="18" y="78" fill="#6472a0">  ⏺ Glob(pattern: **/*)</text>
+<text class="t l l2" x="18" y="98" fill="#ffd79a">  ✻ thinking</text>
+<text class="t l l3" x="18" y="120" fill="#f9e2af">  🟠 MED  nightaudit/checks.py:167 · Stop passing the caller&#x27;s shared `now` into each `r…</text>
+<text class="t l l4" x="18" y="140" fill="#6472a0">  🟡 LOW  nightaudit/cron.py:37 · `shlex.quote` the interpreter path here; a venv under …</text>
+<text class="t l l5" x="18" y="162" fill="#cdd6f4">     ok  nightaudit · code_review (claude_code, 2m52s)</text>
+<text class="t l l6" x="18" y="182" fill="#5f6c80">         4 findings</text>
 <text class="t l l8" x="18" y="224" fill="#8b9bff">$ nightaudit status</text>
 <text class="t l l9" x="18" y="246" fill="#cdd6f4">  ✓ claude_code ▓░░░░░ 1/6 today · 1/30 week</text>
 <text class="t l l10" x="18" y="266" fill="#6472a0">next run  Thu 00:00 (in 2h51m)</text>
 <text class="t l l11" x="18" y="288" fill="#6472a0">up next   nightaudit · security_audit</text>
 <text class="t l l13" x="18" y="330" fill="#8b9bff">$ nightaudit digest</text>
-<text class="t l l14" x="18" y="350" fill="#6fdd8b">~/nightaudit-reports/DIGEST-2026-07-15.md  (1 run)</text>
+<text class="t l l14" x="18" y="350" fill="#6fdd8b">~/nightaudit-reports/DIGEST-2026-07-17.md  (1 run)</text>
 <rect class="cur" x="18" y="351" width="8" height="15" fill="#8b9bff"/>
 </svg>
