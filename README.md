@@ -33,19 +33,24 @@ two directories you can delete at any time.
 
 That's the whole tool. The rest of this page is how to use it.
 
-## The other nightshift
+## Features
 
-[**marcus/nightshift**](https://github.com/marcus/nightshift) got here first — by
-five months, in Go — and it does the same thing for the same people, with one
-difference: it opens PRs. This opens nothing.
+- **Read-only, and not on the honour system.** Enforced by the AI CLI's own
+  permission layer — an allowlist Claude Code applies, or the kernel sandbox
+  Codex runs under. A bug in the model cannot touch the disk.
+- **Uses the subscription you already pay for.** No API key. It drives the same
+  `claude` or `codex` you use by hand, on your own plan.
+- **Budget-aware.** Hard caps per day and per week, per provider, counted in a
+  ledger it keeps itself.
+- **Stays out of your way.** It only runs inside the hours you choose, and only
+  once you've been away from the CLI long enough.
+- **Multi-project.** A round-robin queue, so a noisy repo can't starve the rest.
+- **One digest a morning.** Every finding ranked by severity with a `file:line`,
+  in a single Markdown file.
+- **No daemon, no server.** Cron calls it, it decides whether to run, it exits.
+  Everything it knows lives in two directories you can delete.
 
-If you want the diffs, go there. It is the older and more established of the two,
-and wanting your idle budget to *produce* something is a perfectly good thing to
-want. This is the other choice, and the name is the whole spec: an audit examines
-and reports and changes nothing. That is also why this isn't called nightshift —
-standing next to it wearing its name would lose the one difference that matters.
-
-## Before you start
+## Requirements
 
 - **Python 3.10+**
 - **At least one AI CLI**, installed and already logged in — either
@@ -58,7 +63,7 @@ standing next to it wearing its name would lose the one difference that matters.
 You do not need an API key. nightaudit drives the same CLIs you use by hand, on
 the subscriptions you already have.
 
-## Install it
+## Installation
 
 ```bash
 pipx install nightshift-cli
@@ -84,7 +89,7 @@ it rewrites the old cron block in place. The alias goes away in 1.0. To move
 the state whenever you like, `mv ~/.nightshift ~/.nightaudit` — it is picked up
 on the next run.
 
-## Set it up
+## Getting Started
 
 Run `nightaudit init` once. It finds your AI CLIs, asks which projects to
 review and when, writes a config file, and offers to install the cron lines
