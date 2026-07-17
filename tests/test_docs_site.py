@@ -143,6 +143,34 @@ def test_the_readme_links_reach_real_pages(docs):
     assert not dead, f"README links to docs pages that do not exist: {dead}"
 
 
+def test_the_site_points_at_its_own_docs(docs):
+    """The nav's "Docs" link went to the GitHub README, and stayed there after
+    the docs moved to /docs. The site was the last thing pointing at the old
+    address, and the only visitor who would notice is one who clicked it.
+    """
+    nav = (ROOT / "site" / "components" / "nav.tsx").read_text(encoding="utf-8")
+    labelled_docs = re.findall(r'label:\s*"Docs",\s*href:\s*(?:`|")([^`"]+)', nav)
+
+    assert labelled_docs, "no Docs link in the site nav"
+    for href in labelled_docs:
+        assert href.startswith("/docs"), (
+            f'the nav sends "Docs" to {href!r}; the docs are at /docs'
+        )
+
+
+def test_the_install_command_is_checkable(docs):
+    """`pipx install nightshift-cli` for a tool called nightaudit reads as a
+    typo. Wherever the site says it, it has to be possible to go and look.
+    """
+    hero = (ROOT / "site" / "components" / "hero.tsx").read_text(encoding="utf-8")
+    install_doc = (DOCS_DIR / "installation.md").read_text(encoding="utf-8")
+
+    assert "PYPI_URL" in hero, "the hero shows the install command with no way to verify it"
+    assert "pypi.org/project/nightshift-cli" in install_doc, (
+        "the installation page never links the package it tells you to install"
+    )
+
+
 def test_the_readme_stayed_short(docs):
     """It was 518 lines and nobody read to the bottom. The docs exist so this
     page can be a decision, not a manual — if the detail creeps back, the split
