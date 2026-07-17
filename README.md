@@ -7,7 +7,7 @@
 Put your idle Claude Code or Codex subscription to work — read-only reviews of
 your projects while you're busy, one digest every morning.
 
-![A code_review of this repo: a HIGH and a MED finding, then the morning digest](https://raw.githubusercontent.com/kishormorol/nightaudit/main/docs/demo.svg)
+![nightaudit's morning digest: a code_review of a sample repo turns up a SQL injection, a hardcoded secret, and a timing-unsafe compare — ranked by severity with a file:line, and how many tokens the review took](https://raw.githubusercontent.com/kishormorol/nightaudit/main/docs/demo.gif)
 
 [![PyPI](https://img.shields.io/pypi/v/nightshift-cli)](https://pypi.org/project/nightshift-cli/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/kishormorol/nightaudit/blob/main/LICENSE)

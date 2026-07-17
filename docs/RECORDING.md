@@ -6,7 +6,7 @@ image is the easiest place to quietly break that — nobody diffs a picture.
 
 | what | source | generator | output |
 | --- | --- | --- | --- |
-| The hero animation | `make-demo.py`'s `TRANSCRIPT` | `python3 docs/make-demo.py` | `docs/demo.svg` |
+| The hero animation | a recorded cast, `docs/demo.cast` | `agg … docs/demo.cast docs/demo.gif` | `docs/demo.gif` |
 | The screenshots | `docs/shots/*.txt` | `python3 docs/make-shots.py` | `docs/img/*.svg` |
 
 Both emit SVG rather than GIF or PNG: it animates on GitHub, keeps a binary out
@@ -69,23 +69,32 @@ The animation above the fold is the whole pitch: see it → want it → install 
 one paste. It sits directly above the `pipx install nightshift-cli` line, so
 whatever it shows is the first thing a visitor learns about the tool.
 
-`make-demo.py` animates a trimmed transcript line by line. It is generated
-rather than recorded, and the honest limitation is that it *asserts* its
-timings rather than demonstrating them — the `2m18s` is real, but the animation
-does not take 2m18s.
+`docs/demo.gif` is a real recording: it types `nightaudit digest --stdout` and
+shows the actual digest of a throwaway sample repo — a `code_review` that turns
+up a SQL injection, a hardcoded secret, and a timing-unsafe compare, ranked with
+`file:line` and the token count. Real output, and no home path or private name
+on screen, because it runs against a disposable `NIGHTAUDIT_HOME` and repo.
 
-A real asciinema cast would be better, because it demonstrates the timings. If
-you record one:
+It replaced a generated SVG (`make-demo.py`) that *asserted* its timings rather
+than demonstrating them, and — being a hand-typed constant — drifted from the
+CLI's real format more than once. A recording cannot drift: it is the CLI's own
+output.
+
+`docs/demo.cast` is the asciicast, kept in the repo so the GIF is re-renderable
+without re-recording:
 
 ```bash
-asciinema rec --cols 90 --rows 22 demo.cast
-agg --font-size 15 --theme asciinema demo.cast docs/demo.gif
+agg --font-size 15 --theme asciinema --idle-time-limit 1 \
+    --last-frame-duration 2.5 docs/demo.cast docs/demo.gif
 ```
 
-Target roughly a **14 second loop** — long enough to read, short enough to loop
-before someone scrolls past. Point `README.md` at the result, delete
-`make-demo.py`, and **keep `demo.cast` in the repo**: re-recording from scratch
-to change one line is how a demo goes stale and starts lying about the product.
+To record a fresh one: drive `nightaudit` through a pty against a disposable
+`NIGHTAUDIT_HOME` and a neutral repo (so nothing private is on screen), size the
+terminal to fit the whole digest without scrolling — so the loop rests on the
+findings rather than the run log — and render with the command above. Then point
+`README.md` at the result. **Keep `demo.cast` in the repo**: re-recording from
+scratch to change one line is how a demo goes stale and starts lying about the
+product.
 
 ## What an image must never show
 

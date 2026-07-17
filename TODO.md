@@ -52,28 +52,14 @@ cron-driven install has plausibly printed it into a log someone eventually read.
 Tests are in `tests/test_upgrade_from_nightshift.py`; deleting them is part of
 the same change.
 
-## 3. Record a real asciinema cast
+## 3. Record a real asciinema cast — done
 
-`docs/demo.svg` is generated (`docs/make-demo.py`), not recorded. A real cast
-demonstrates the timings instead of asserting them. See `docs/RECORDING.md` —
-it also says to repoint `README.md` and delete the generator when you do.
-
-No longer blocked. It waited on the output format being settled, and it is —
-`watch` prints the framed log `_render_log_event` emits, and `docs/shots/` holds
-real captures of it.
-
-**It has since gone stale, which raises the priority.** `make-demo.py` says its
-transcript is "real formatting", and it is not: the lines read
-``path · 267 — text`` where `_echo_finding` prints ``path:line · text``. That is
-the same drift the 07-15 `watch.txt` had, still live in the one image at the top
-of the README and of the PyPI page — the first thing anyone sees. It survived
-because that transcript is a hand-typed constant in a .py file, which nothing
-compares to anything.
-
-The fix is the fix that worked everywhere else: generate it from
-`docs/shots/`, the way `make-run-script.py` builds the hero, rather than
-recording a cast and inheriting the same problem in a new format. A cast still
-buys real timings; the format drift does not need to wait for one.
+`docs/demo.svg` and `docs/make-demo.py` are gone. The hero is now
+`docs/demo.gif`, rendered by `agg` from `docs/demo.cast` — a real recording of
+`nightaudit digest` against a throwaway sample repo. It demonstrates the timings
+instead of asserting them, and it cannot drift the way the hand-typed transcript
+did, because it is the CLI's own output. `test_demo_is_real.py` retired with the
+generator it guarded; `docs/RECORDING.md` documents how to re-render or re-record.
 
 ## 4. Copilot adapter — help wanted, blocked upstream
 

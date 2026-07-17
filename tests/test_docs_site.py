@@ -138,7 +138,7 @@ def test_the_readme_links_reach_real_pages(docs):
     slugs = {p.stem for p in docs}
     text = README.read_text(encoding="utf-8")
     # Only the docs site's own URLs. A bare `/docs/(\w+)` also matches
-    # raw.githubusercontent.com/.../main/docs/demo.svg, which is a file in the
+    # raw.githubusercontent.com/.../main/docs/demo.gif, which is a file in the
     # repo and not a page — the first version of this test failed on it.
     linked = set(
         re.findall(
@@ -154,7 +154,7 @@ def test_the_readme_links_reach_real_pages(docs):
 def test_the_readme_has_no_relative_links():
     """PyPI renders this file with no repo to resolve against.
 
-    `](docs/demo.svg)` is an image on GitHub and a broken one on PyPI, where the
+    `](docs/demo.gif)` is an image on GitHub and a broken one on PyPI, where the
     same markdown is the project description and there is nothing to be relative
     to. `](LICENSE)` is a 404 there. Nobody sees it unless they look at the
     package page, which is the one place a stranger decides whether to install.
