@@ -19,6 +19,9 @@ import yaml
 KNOWN_PROVIDERS = ("claude_code", "codex", "copilot")
 
 DEFAULT_STATE_DIR = Path("~/.nightaudit")
+#: Where 0.3.0 and earlier kept the same files, under the old name. Read when it
+#: is the only one that exists; never written to as a fresh default.
+LEGACY_STATE_DIR = Path("~/.nightshift")
 DEFAULT_DIGEST_DIR = Path("~/nightaudit-reports")
 DEFAULT_WINDOWS = ("00:00-06:00",)
 DEFAULT_IDLE_MINUTES = 60
@@ -43,8 +46,40 @@ def expand(p: str | Path) -> Path:
 
 
 def state_dir() -> Path:
-    """Where ledger/queue/lock/config live. Override with ``NIGHTAUDIT_HOME``."""
-    return expand(os.environ.get("NIGHTAUDIT_HOME", DEFAULT_STATE_DIR))
+    """Where ledger/queue/lock/config live. Override with ``NIGHTAUDIT_HOME``.
+
+    Falls back to the pre-rename directory, because the alternative is an
+    upgrade that loses your config, budget history and queue in silence. This
+    tool's whole premise is that you stop thinking about it, so it does not get
+    to depend on you having read anything before the next cron tick.
+
+    Resolution, first hit wins:
+
+    1. ``NIGHTAUDIT_HOME``, then ``NIGHTSHIFT_HOME`` — an explicit answer, and
+       the old variable is still explicit; someone who set it meant it.
+    2. ``~/.nightaudit`` if it exists. It only exists deliberately, so it beats
+       any leftover.
+    3. ``~/.nightshift`` if it exists — an install that predates the rename.
+    4. ``~/.nightaudit``, for anyone new.
+
+    Read in place rather than moved. Renaming a directory out from under a cron
+    run that is mid-write is a real way to lose the very state this exists to
+    keep, and there is no moment in an unattended tool's life that is provably
+    quiet. Staying put is not tidy, but it cannot corrupt anything, and the
+    choice is reversible by anyone who disagrees: ``mv ~/.nightshift
+    ~/.nightaudit`` is honoured on the next run by rule 2.
+    """
+    for var in ("NIGHTAUDIT_HOME", "NIGHTSHIFT_HOME"):
+        override = os.environ.get(var)
+        if override:
+            return expand(override)
+    current = expand(DEFAULT_STATE_DIR)
+    if current.is_dir():
+        return current
+    legacy = expand(LEGACY_STATE_DIR)
+    if legacy.is_dir():
+        return legacy
+    return current
 
 
 def config_path() -> Path:

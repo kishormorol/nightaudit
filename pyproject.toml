@@ -42,6 +42,12 @@ dev = ["pytest>=7.4", "pytest-cov>=4.1"]
 
 [project.scripts]
 nightaudit = "nightaudit.cli:main"
+# Deprecated, and the only reason an upgrade is not a breakage. 0.3.0's cron
+# lines name this binary by absolute path; without it the upgrade deletes the
+# command cron calls, and the failure surfaces as an hourly line in a log the
+# user installed this tool specifically to stop reading. It prints a notice and
+# does the job. Removing it is a breaking change, so it waits for 1.0.
+nightshift = "nightaudit.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/kishormorol/nightaudit"

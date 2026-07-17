@@ -137,6 +137,34 @@ def _render_event(event: Event) -> None:
         click.echo(click.style(f"  ✗ {event.text}", fg="red"))
 
 
+def _warn_if_invoked_by_the_old_name() -> None:
+    """Say so when reached through the deprecated `nightshift` alias.
+
+    On stderr, and never fatal: the caller is almost always a 0.3.0 cron line
+    that still works, and the run it is about to do is the whole point. This is
+    the one place the tool can tell an unattended install that it was renamed —
+    the user is by definition not watching, so it has to survive being ignored.
+    """
+    if Path(sys.argv[0]).name != "nightshift":
+        return
+    try:
+        click.echo(
+            click.style(
+                "notice    `nightshift` is now `nightaudit`, and this alias will "
+                "be removed in 1.0.\n"
+                "          Run `nightaudit init` to update your crontab; it "
+                "replaces the old block in place.",
+                fg="yellow",
+            ),
+            err=True,
+        )
+    except OSError:
+        # A closed or broken stderr is not a reason to skip the review the
+        # caller actually asked for. The notice is the least important thing
+        # this process will do.
+        pass
+
+
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(__version__, prog_name="nightaudit")
 def main() -> None:
@@ -146,6 +174,7 @@ def main() -> None:
     morning. The AI never modifies your code. Checks you configure yourself are
     your own commands and run as you — see `Checks` in the README.
     """
+    _warn_if_invoked_by_the_old_name()
 
 
 # ---------------------------------------------------------------- init
