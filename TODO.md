@@ -92,12 +92,28 @@ test_flag_contract.py` and CI's `contract` job check every flag both adapters
 pass against the real CLI's `--help`. "Documented, not observed" is a defect
 class, not a one-off.
 
-## 5. The site has nowhere to go
+## 5. `nightaudit.dev` — optional now, and free while it lasts
 
-`site/app/layout.tsx` sets `metadataBase` to `https://nightaudit.dev`, which is
-not registered or deployed. Until it is, the og:image URL in the page metadata
-points at a domain that does not resolve. Either register it, point
-`metadataBase` at wherever this actually deploys, or expect broken previews.
+~~The site has nowhere to go.~~ It was already deployed the whole time, on
+Railway at <https://nightshift-site-production.up.railway.app>, building from
+`main` with no config in this repo — which is why nothing here knew. This item
+said "not registered or deployed" and was half wrong in the more expensive
+direction: the previews were broken, but not for the reason written down.
+
+Fixed. `metadataBase` came from intent — a hardcoded `https://nightaudit.dev`
+that has never resolved — so the card rendered at the real URL while every
+unfurl asked a nameserver that does not exist. It now comes from the platform
+(`RAILWAY_PUBLIC_DOMAIN`), and `NEXT_PUBLIC_SITE_URL` overrides it.
+
+What is left is a want, not a bug. `nightaudit.dev` was unregistered as of
+2026-07-17 (NXDOMAIN); `nightshift.dev` is taken, which is the argument for not
+sitting on it. To take it: register anywhere, add it as a custom domain in
+Railway, set `NEXT_PUBLIC_SITE_URL=https://nightaudit.dev` there. No code change
+— that is the point of the env var.
+
+The deploy is worth writing down somewhere the repo can see. Nothing in here
+records that Railway exists, so the next person to read `metadataBase` learns
+where the site lives from a fallback string.
 
 ## 6. Housekeeping
 

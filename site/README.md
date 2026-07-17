@@ -1,14 +1,32 @@
-# nightaudit.dev
+# The landing page
 
-The landing page, built from the **Nightaudit visual identity** design board —
-turn 3, the "soft nocturnal" direction (2b) as refined into `3a` (landing) and
-`3b` (social card).
+Built from the **Nightaudit visual identity** design board — turn 3, the "soft
+nocturnal" direction (2b) as refined into `3a` (landing) and `3b` (social card).
 
 ```bash
 npm install
 npm run dev     # http://localhost:3000
 npm run build   # every route prerenders static
 ```
+
+## Where it deploys
+
+**<https://nightshift-site-production.up.railway.app>** — Railway, building from
+`main` on push. There is no config for it in this repo: no `railway.json`, no
+deploy step in CI. Railway detects Next.js and gets on with it.
+
+That is worth stating plainly, because nothing else here says it. This file was
+titled `nightaudit.dev` and `metadataBase` was hardcoded to the same, a domain
+that has never been registered — so the og:image rendered correctly at the URL
+that serves it while every unfurl fetched a host with no DNS. The page was fine
+and the metadata pointed at a wish. Nobody notices until they share the link.
+
+`metadataBase` now comes from `RAILWAY_PUBLIC_DOMAIN`, with
+`NEXT_PUBLIC_SITE_URL` as an override — see `app/layout.tsx`. If a custom domain
+ever lands, add it in Railway and set that variable there. No code change.
+
+Every route prerenders (`○` in the build output), so this is a folder of static
+files and could live anywhere. It is on Railway because it already was.
 
 ## Where things live
 
