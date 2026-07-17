@@ -17,8 +17,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 const description =
-  "Put your idle Claude Code subscription to work — read-only reviews of your " +
-  "projects while you're busy, one digest every morning.";
+  "Put your idle Claude Code or Codex subscription to work — read-only reviews " +
+  "of your projects while you're busy, one digest every morning.";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nightaudit.dev"),

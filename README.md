@@ -4,8 +4,8 @@
 
 **An audit doesn't change the books.**
 
-Put your idle Claude Code subscription to work — read-only reviews of your
-projects while you're busy, one digest every morning.
+Put your idle Claude Code or Codex subscription to work — read-only reviews of
+your projects while you're busy, one digest every morning.
 
 ![A real code_review of this repo: two HIGH findings, then the morning digest](docs/demo.svg)
 
@@ -19,9 +19,13 @@ projects while you're busy, one digest every morning.
 
 ## What this is
 
-You already pay for Claude Code. It sits idle most of the day, and definitely
-all night. nightaudit spends that idle time reviewing the projects you point it
-at, and leaves the results in one Markdown file you read with your coffee.
+You already pay for Claude Code or ChatGPT. That subscription sits idle most of
+the day, and definitely all night. nightaudit spends that idle time reviewing
+the projects you point it at, and leaves the results in one Markdown file you
+read with your coffee.
+
+Either CLI works — Claude Code or Codex, whichever you have. Have both and it
+uses both, each with its own budget.
 
 It never edits your code. It has no daemon and no server — cron calls it, it
 decides whether to run, and it goes back to sleep. Everything it knows lives in
