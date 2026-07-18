@@ -9,6 +9,15 @@ land and a patch is fixes and docs.
 The command is `nightaudit`; the PyPI distribution is `nightshift-cli`. See the
 note in the README for why they differ.
 
+## [0.6.2] — 2026-07-17
+
+### Changed
+- The README hero is now a real recorded cast (`docs/demo.gif`) instead of a
+  generated SVG — a recording of `nightaudit digest` against a sample repo,
+  which cannot drift from the CLI's output the way the hand-typed transcript
+  did. This release carries it, and the Beta status, CHANGELOG, and
+  `Documentation`/`Changelog` project URLs, to the PyPI page.
+
 ## [0.6.1] — 2026-07-17
 
 ### Changed
@@ -91,6 +100,7 @@ note in the README for why they differ.
 
 - First public release.
 
+[0.6.2]: https://github.com/kishormorol/nightaudit/releases/tag/v0.6.2
 [0.6.1]: https://github.com/kishormorol/nightaudit/releases/tag/v0.6.1
 [0.6.0]: https://github.com/kishormorol/nightaudit/releases/tag/v0.6.0
 [0.5.0]: https://github.com/kishormorol/nightaudit/releases/tag/v0.5.0
