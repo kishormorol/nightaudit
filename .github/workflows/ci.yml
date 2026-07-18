@@ -183,13 +183,6 @@ jobs:
           python3 docs/make-run-script.py
           git diff --exit-code site/lib/run-script.generated.ts
 
-      - name: The README demo must match its generator
-        # docs/demo.svg is generated and committed. Editing make-demo.py without
-        # re-running it would leave the README showing stale CLI output.
-        run: |
-          python3 docs/make-demo.py
-          git diff --exit-code docs/demo.svg
-
       - name: The screenshots must match their generator
         # Same rule for the shots rendered from docs/shots/. Touching either
         # without re-rendering leaves the README showing a terminal the CLI no

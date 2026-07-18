@@ -24,7 +24,7 @@ import re
 import unicodedata
 from pathlib import Path
 
-# Brand tokens — the "soft nocturnal" direction, shared with make-demo.py.
+# Brand tokens — the "soft nocturnal" direction for the screenshots.
 BG = "#0b1122"
 CHROME = "#0d1326"
 LINE = "#161d33"
