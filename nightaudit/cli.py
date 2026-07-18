@@ -379,7 +379,7 @@ def init(force: bool, discover_roots: tuple[str, ...]) -> None:
     cfg.digest_dir.mkdir(parents=True, exist_ok=True)
 
     click.echo("\nnightaudit has no daemon — cron drives it. Add these lines:\n")
-    for line in cron.entries():
+    for line in cron.block().splitlines():
         click.echo(f"  {line}")
     click.echo()
     if click.confirm("Install them into your crontab now?", default=False):

@@ -9,6 +9,16 @@ land and a patch is fixes and docs.
 The command is `nightaudit`; the PyPI distribution is `nightshift-cli`. See the
 note in the README for why they differ.
 
+## [0.6.3] — 2026-07-18
+
+### Fixed
+- The managed crontab now pins a `PATH` above its job lines, so the hourly
+  `nightaudit run` resolves provider binaries (`claude`, `codex`, …) that live
+  outside cron's bare `/usr/bin:/bin` — e.g. `~/.local/bin` or
+  `/opt/homebrew/bin`. Without it, cron silently found no providers and recorded
+  zero-run nights even though the interactive shell ran them fine. `init` freezes
+  the PATH it was invoked with; re-run `nightaudit init` after moving a binary.
+
 ## [0.6.2] — 2026-07-17
 
 ### Changed

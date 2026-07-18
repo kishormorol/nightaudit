@@ -97,8 +97,13 @@ class _Collector:
         self.wrote: list[str] = []
         #: A turn- or stream-level error message, preferred over raw stderr.
         self.error = ""
-        #: Tokens across every completed turn. Codex reports per turn, and a
-        #: review can take more than one, so these accumulate.
+        #: Tokens across every completed turn. `codex exec` runs one turn per
+        #: invocation, so in practice there is exactly one `turn.completed` and
+        #: this holds that turn's usage. Accumulating (rather than overwriting)
+        #: assumes that if a run ever reported multiple turns, each `usage` would
+        #: be that turn's own count, not a running total — untested, because
+        #: `exec` does not produce multiple turns. If that ever changes and the
+        #: counts arrive cumulative, this would overcount; take the last instead.
         self.tokens = 0
         self._claimed = False
 
