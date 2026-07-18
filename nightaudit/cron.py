@@ -6,6 +6,7 @@ itself whether to act.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -13,6 +14,10 @@ from pathlib import Path
 
 MARKER = "# nightaudit (managed — edit via `nightaudit init`)"
 END_MARKER = "# end nightaudit"
+
+#: Kept present in the pinned PATH even if the caller's own PATH is exotic, so a
+#: cron job never loses the base system tools cron would otherwise have given it.
+_FALLBACK_PATH = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 #: What 0.3.0 and earlier wrote. Recognised so `init` replaces that block rather
 #: than adding a second one beside it: the old lines call a `nightshift` binary
@@ -37,6 +42,25 @@ def executable() -> str:
     return f"{Path(sys.executable)} -m nightaudit"
 
 
+def path_value() -> str:
+    """PATH to pin in the crontab so cron resolves what ``init`` resolved.
+
+    cron runs jobs with a bare PATH (typically ``/usr/bin:/bin``), so provider
+    binaries installed elsewhere — ``claude`` under ``~/.local/bin``, ``codex``
+    under ``/opt/homebrew/bin``, anything behind a version manager — are invisible
+    to the hourly ``run`` even though the interactive shell finds them fine. That
+    silently produces zero-run nights. ``init`` runs from the user's shell, so its
+    PATH is exactly the one that resolved these tools; freezing it into the block
+    keeps cron and the shell in agreement. Re-run ``init`` after moving a binary.
+    """
+    current = os.environ.get("PATH", "").strip()
+    dirs = current.split(os.pathsep) if current else []
+    for fallback in _FALLBACK_PATH.split(":"):
+        if fallback not in dirs:
+            dirs.append(fallback)
+    return os.pathsep.join(dirs)
+
+
 def entries(binary: str | None = None) -> list[str]:
     exe = binary or executable()
     return [
@@ -46,7 +70,10 @@ def entries(binary: str | None = None) -> list[str]:
 
 
 def block(binary: str | None = None) -> str:
-    lines = [MARKER, *entries(binary), END_MARKER]
+    # The PATH assignment must sit above the entries: a crontab env line applies
+    # only to the jobs below it, which keeps it scoped to our two lines and away
+    # from any entries of the user's own that `merged` places ahead of this block.
+    lines = [MARKER, f"PATH={path_value()}", *entries(binary), END_MARKER]
     return "\n".join(lines) + "\n"
 
 

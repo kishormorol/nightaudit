@@ -54,3 +54,22 @@ def test_merged_output_ends_with_a_newline():
     # crontab(1) rejects a file whose last line has no terminator.
     assert cron.merged("", "/usr/local/bin/nightaudit").endswith("\n")
     assert cron.merged("0 9 * * * x", "/usr/local/bin/nightaudit").endswith("\n")
+
+
+def test_block_pins_the_path_so_cron_finds_the_providers(monkeypatch):
+    # cron's bare PATH hides ~/.local/bin (claude) and /opt/homebrew/bin (codex);
+    # the block pins init's PATH above its entries so the hourly run resolves them.
+    monkeypatch.setenv("PATH", "/Users/me/.local/bin:/opt/homebrew/bin:/usr/bin:/bin")
+    block = cron.block("/usr/local/bin/nightaudit")
+    lines = block.splitlines()
+    path_line = next(line for line in lines if line.startswith("PATH="))
+    assert "/Users/me/.local/bin" in path_line
+    assert "/opt/homebrew/bin" in path_line
+    # It must sit above the jobs, or a crontab env line would not apply to them.
+    assert lines.index(path_line) < lines.index(next(l for l in lines if " run " in l))
+
+
+def test_path_keeps_the_system_dirs_when_the_env_path_is_empty(monkeypatch):
+    monkeypatch.delenv("PATH", raising=False)
+    assert "/usr/bin" in cron.path_value()
+    assert "/bin" in cron.path_value()
