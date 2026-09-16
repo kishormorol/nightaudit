@@ -9,6 +9,21 @@ land and a patch is fixes and docs.
 The command is `nightaudit`; the PyPI distribution is `nightshift-cli`. See the
 note in the README for why they differ.
 
+## [0.6.4] — 2026-09-16
+
+### Added
+- `CONTRIBUTING.md`, issue forms, and `CITATION.cff`. The contributor guide
+  records what CI already defends: read-only is enforced by the provider's
+  permission layer, the tests spend no quota and cannot touch a real ledger,
+  and the generated files fail the build on drift.
+- The citation metadata carries an ORCID, and this release is archived on
+  Zenodo with a DOI, so the tool can be cited from a paper.
+
+### Changed
+- The version drift check now covers `CITATION.cff` as well as `pyproject.toml`
+  and `nightaudit.__version__`, so a citation cannot advertise a release that
+  never shipped.
+
 ## [0.6.3] — 2026-07-18
 
 ### Fixed
