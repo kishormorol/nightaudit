@@ -8,6 +8,10 @@ authors:
     given-names: Md Kishor
     orcid: "https://orcid.org/0000-0002-4468-8260"
 version: 0.6.4
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.22800162
+    description: "Concept DOI — always resolves to the latest release."
 repository-code: "https://github.com/kishormorol/nightaudit"
 url: "https://nightshift-site-production.up.railway.app/docs"
 license: MIT

@@ -14,6 +14,7 @@ your projects while you're busy, one digest every morning.
 [![PyPI](https://img.shields.io/pypi/v/nightshift-cli)](https://pypi.org/project/nightshift-cli/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/kishormorol/nightaudit/blob/main/LICENSE)
 [![python](https://img.shields.io/badge/python-3.10%2B-blue)](https://github.com/kishormorol/nightaudit/blob/main/pyproject.toml)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.22800162-1682D4)](https://doi.org/10.5281/zenodo.22800162)
 
 **[Docs](https://nightshift-site-production.up.railway.app/docs)** · [Quick Start](https://nightshift-site-production.up.railway.app/docs/quick-start) · [Configuration](https://nightshift-site-production.up.railway.app/docs/configuration) · [CLI Reference](https://nightshift-site-production.up.railway.app/docs/cli-reference)
 
