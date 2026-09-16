@@ -12,6 +12,7 @@ from datetime import datetime
 import pytest
 from click.testing import CliRunner
 
+import nightaudit
 from nightaudit.cli import main
 from tests.conftest import FakeAdapter, build_config
 
@@ -72,7 +73,10 @@ def stub_registry(monkeypatch):
 def test_version(runner):
     result = runner.invoke(main, ["--version"])
     assert result.exit_code == 0
-    assert "0.6.3" in result.output
+    # Against __version__, not a literal: a hardcoded version here is a fourth
+    # copy that CI's drift check does not cover, so every bump broke this test
+    # for no reason other than that it was typed twice.
+    assert nightaudit.__version__ in result.output
 
 
 def test_help_lists_every_command(runner):

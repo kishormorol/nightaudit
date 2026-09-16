@@ -6,7 +6,8 @@ abstract: "Read-only overnight code reviews of your projects, driven by the Clau
 authors:
   - family-names: Morol
     given-names: Md Kishor
-version: 0.6.3
+    orcid: "https://orcid.org/0000-0002-4468-8260"
+version: 0.6.4
 repository-code: "https://github.com/kishormorol/nightaudit"
 url: "https://nightshift-site-production.up.railway.app/docs"
 license: MIT
