@@ -1,0 +1,53 @@
+name: Bug report
+description: Something is broken or gives the wrong result
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `nightaudit --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Claude Code
+        - Codex
+        - Both
+        - Not provider-specific
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS and Python
+      placeholder: e.g. macOS 15 on Python 3.12
+  - type: textarea
+    id: output
+    attributes:
+      label: Relevant output
+      description: >
+        A digest excerpt, a `nightaudit status` dump, or the cron log lines around
+        the failure. Check it for anything private before pasting — digests quote
+        your code, and paths can carry client or employer names.
+      render: text

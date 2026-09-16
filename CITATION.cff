@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "nightaudit"
+abstract: "Read-only overnight code reviews of your projects, driven by the Claude Code or Codex subscription you already pay for, delivered as one digest every morning."
+authors:
+  - family-names: Morol
+    given-names: Md Kishor
+version: 0.6.3
+repository-code: "https://github.com/kishormorol/nightaudit"
+url: "https://nightshift-site-production.up.railway.app/docs"
+license: MIT
+keywords:
+  - ai
+  - automation
+  - claude-code
+  - cli
+  - code-review
+  - codex
+  - developer-tools
+  - static-analysis

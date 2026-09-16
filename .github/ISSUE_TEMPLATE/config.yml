@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://nightshift-site-production.up.railway.app/docs
+    about: Quick start, configuration, and the CLI reference.
